@@ -1,0 +1,17 @@
+# Rust
+/target/
+**/*.rs.bk
+
+# Python / maturin
+__pycache__/
+*.py[cod]
+.venv/
+*.so
+dist/
+*.egg-info/
+
+# Test data: 69 MB of scanner binaries (.mat/.h5/.fig/.png).
+# Needed for the golden-file tests but not yet tracked -- decide on
+# git-lfs before committing these, since large blobs cannot be removed
+# from history without a rewrite.
+/tests/datasets/
