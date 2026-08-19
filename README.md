@@ -101,7 +101,9 @@ a `raw2nii` console-script CLI.
 ### Install as a uv tool (recommended)
 
 ```bash
-uv tool install crates/raw2nii-py   # from a checkout
+uv tool install "raw2nii @ git+https://github.com/bastigw/raw2nii#subdirectory=crates/raw2nii-py"
+# or, from a local checkout:
+uv tool install crates/raw2nii-py
 # or, once published: uv tool install raw2nii
 ```
 
