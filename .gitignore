@@ -15,3 +15,6 @@ dist/
 # git-lfs before committing these, since large blobs cannot be removed
 # from history without a rewrite.
 /tests/datasets/
+
+# Goldens are small text digests and ARE tracked, unlike the datasets above.
+!/tests/goldens/
