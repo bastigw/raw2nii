@@ -1,23 +1,19 @@
 [package]
-name = "raw2nii-cli"
+name = "raw2nii-convert"
 version = "0.1.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
-[[bin]]
-name = "raw2nii"
-path = "src/main.rs"
-
 [dependencies]
 raw2nii-core = { path = "../raw2nii-core" }
 raw2nii-ge = { path = "../raw2nii-ge" }
-raw2nii-convert = { path = "../raw2nii-convert" }
 clap = { version = "4", features = ["derive"] }
 tracing.workspace = true
-tracing-subscriber = "0.3"
-rayon.workspace = true
 serde_json.workspace = true
+tar.workspace = true
+zstd.workspace = true
 
 [dev-dependencies]
 tempfile = "3"
+rayon.workspace = true

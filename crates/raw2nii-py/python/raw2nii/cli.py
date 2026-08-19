@@ -1,17 +1,22 @@
 """``raw2nii`` console script: convert vendor raw files to NIfTI-MRS.
 
-Thin argparse wrapper around :func:`raw2nii.convert`, installed as a
+argparse wrapper around the Rust conversion, discovery, and archive logic
+shared with the ``raw2nii`` binary (via ``raw2nii-convert``), installed as a
 console-script entry point so the package works as a ``uv tool``
-(``uv tool install raw2nii`` then ``raw2nii scan.mat``).
+(``uv tool install raw2nii`` then ``raw2nii scan.mat``). Mirrors the native
+CLI's option set (``-j``/``--jobs``, ``--dry-run``, ``--json-log``,
+``--archive``/``--delete``, ``-v``/``--verbose``) plus ``-r``/``--recursive``
+and multi-input support, which the native CLI doesn't have.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
-from . import Raw2NiiError, convert
+from . import _build_and_verify_archive, _convert_many
 
 
 def _discover(root: Path, recursive: bool) -> list[Path]:
@@ -62,11 +67,57 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="overwrite existing output files",
     )
+    parser.add_argument(
+        "-j",
+        "--jobs",
+        type=int,
+        default=None,
+        help="worker threads for parallel conversion (default: available parallelism)",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="show what would be converted without writing any files",
+    )
+    parser.add_argument(
+        "--json-log",
+        action="store_true",
+        help="emit machine-readable JSON Lines instead of human-readable output",
+    )
+    parser.add_argument(
+        "--archive",
+        type=Path,
+        default=None,
+        metavar="PATH",
+        help=(
+            "write a verified tar.zst snapshot of the input directory "
+            "(output excluded) here; requires a single directory input"
+        ),
+    )
+    parser.add_argument(
+        "--delete",
+        action="store_true",
+        help="after a verified --archive, delete the original input files (requires --archive)",
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="count",
+        default=0,
+        help="increase verbosity: -v for info, -vv for debug",
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+
+    if args.delete and not args.archive:
+        print("raw2nii: --delete requires --archive", file=sys.stderr)
+        return 1
+    if args.archive and (len(args.inputs) != 1 or not args.inputs[0].is_dir()):
+        print("raw2nii: --archive requires a single directory input", file=sys.stderr)
+        return 1
 
     inputs: list[Path] = []
     for raw_input in args.inputs:
@@ -79,25 +130,71 @@ def main(argv: list[str] | None = None) -> int:
         print("raw2nii: no .mat files found", file=sys.stderr)
         return 1
 
-    exit_code = 0
-    for path in inputs:
-        try:
-            written = convert(
-                str(path),
-                output_dir=str(args.output_dir) if args.output_dir else None,
-                format=args.format,
-                compress_level=args.compress_level,
-                overwrite=args.overwrite,
-            )
-        except Raw2NiiError as exc:
-            print(f"raw2nii: {path}: {exc}", file=sys.stderr)
-            exit_code = 1
-            continue
+    if args.verbose:
+        print(f"raw2nii: converting {len(inputs)} file(s)", file=sys.stderr)
 
-        for out in written:
-            print(out)
+    outcomes = _convert_many(
+        [str(p) for p in inputs],
+        output_dir=str(args.output_dir) if args.output_dir else None,
+        overwrite=args.overwrite,
+        compress_level=args.compress_level,
+        jobs=args.jobs,
+        dry_run=args.dry_run,
+        format=args.format,
+    )
 
-    return exit_code
+    failures = 0
+    if args.json_log:
+        written = skipped = failed = 0
+        for outcome in outcomes:
+            print(json.dumps(outcome))
+            if outcome["status"] == "written":
+                written += 1
+            elif outcome["status"] == "skipped":
+                skipped += 1
+            else:
+                failed += 1
+        failures = failed
+        print(json.dumps({"written": written, "skipped": skipped, "failed": failed}))
+    else:
+        for outcome in outcomes:
+            status = outcome["status"]
+            if status == "written":
+                print(f"{outcome['input']} -> {outcome['output']}")
+            elif status == "skipped":
+                print(f"raw2nii: {outcome['input']}: {outcome['reason']}", file=sys.stderr)
+            else:
+                print(f"raw2nii: {outcome['input']}: {outcome['error']}", file=sys.stderr)
+                failures += 1
+
+    if args.archive:
+        if failures > 0:
+            print(f"raw2nii: not archiving: {failures} file(s) failed to convert", file=sys.stderr)
+        else:
+            source_dir = args.inputs[0]
+            exclude = args.output_dir or (source_dir / ".raw2nii-no-exclude")
+            try:
+                verified = _build_and_verify_archive(str(source_dir), str(args.archive), str(exclude))
+            except Exception as exc:  # noqa: BLE001 - surfaced verbatim like the native CLI
+                print(f"raw2nii: archiving {source_dir}: {exc}", file=sys.stderr)
+                failures += 1
+                verified = False
+
+            if verified:
+                print(f"archived {source_dir} -> {args.archive}")
+                if args.delete:
+                    for outcome in outcomes:
+                        if outcome["status"] == "written":
+                            try:
+                                Path(outcome["input"]).unlink()
+                            except OSError as exc:
+                                print(f"raw2nii: could not delete {outcome['input']}: {exc}", file=sys.stderr)
+                                failures += 1
+            elif not failures:
+                print("raw2nii: archive verification failed, originals were not deleted", file=sys.stderr)
+                failures += 1
+
+    return 1 if failures > 0 else 0
 
 
 if __name__ == "__main__":

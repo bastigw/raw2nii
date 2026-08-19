@@ -12,10 +12,12 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 raw2nii-core = { path = "../raw2nii-core" }
 raw2nii-ge = { path = "../raw2nii-ge" }
+raw2nii-convert = { path = "../raw2nii-convert" }
 ndarray.workspace = true
 num-complex.workspace = true
 serde_json.workspace = true
 tracing.workspace = true
+rayon.workspace = true
 pyo3 = { version = "0.22", features = ["abi3-py39"] }
 numpy = "0.22"
 pythonize = "0.22"

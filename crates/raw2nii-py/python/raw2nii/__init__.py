@@ -10,6 +10,8 @@ from .raw2nii import (
     MissingMetadataError,
     Raw2NiiError,
     UnsupportedFormatError,
+    _build_and_verify_archive,
+    _convert_many,
     convert,
     read,
 )

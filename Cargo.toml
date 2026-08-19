@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "crates/raw2nii-core",
     "crates/raw2nii-ge",
+    "crates/raw2nii-convert",
     "crates/raw2nii-cli",
     "crates/raw2nii-py",
 ]

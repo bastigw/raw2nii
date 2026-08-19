@@ -756,6 +756,21 @@ name = "raw2nii-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "raw2nii-convert",
+ "raw2nii-core",
+ "raw2nii-ge",
+ "rayon",
+ "serde_json",
+ "tempfile",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "raw2nii-convert"
+version = "0.1.0"
+dependencies = [
+ "clap",
  "raw2nii-core",
  "raw2nii-ge",
  "rayon",
@@ -763,7 +778,6 @@ dependencies = [
  "tar",
  "tempfile",
  "tracing",
- "tracing-subscriber",
  "zstd",
 ]
 
@@ -802,8 +816,10 @@ dependencies = [
  "numpy",
  "pyo3",
  "pythonize",
+ "raw2nii-convert",
  "raw2nii-core",
  "raw2nii-ge",
+ "rayon",
  "serde_json",
  "tracing",
 ]

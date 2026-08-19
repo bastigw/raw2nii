@@ -15,8 +15,12 @@ mod error;
 
 use std::path::{Path, PathBuf};
 
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
+use pyo3::types::PyDict;
+use rayon::prelude::*;
 
+use raw2nii_convert::{convert_one, Outcome, OutputFormat};
 use raw2nii_core::backend::Registry;
 use raw2nii_core::dataset::MrsDataset;
 use raw2nii_ge::{is_unlocalised, output_stem, GeMatBackend};
@@ -122,10 +126,110 @@ fn convert(
     Ok(written)
 }
 
+fn parse_format(format: &str) -> PyResult<OutputFormat> {
+    match format {
+        "nii-gz" => Ok(OutputFormat::NiiGz),
+        "nii" => Ok(OutputFormat::Nii),
+        other => Err(PyValueError::new_err(format!(
+            "unknown format {other:?}, expected \"nii-gz\" or \"nii\""
+        ))),
+    }
+}
+
+fn outcome_to_dict(py: Python<'_>, outcome: &Outcome) -> PyResult<Py<PyDict>> {
+    let d = PyDict::new_bound(py);
+    match outcome {
+        Outcome::Written { input, output } => {
+            d.set_item("status", "written")?;
+            d.set_item("input", input.to_string_lossy().into_owned())?;
+            d.set_item("output", output.to_string_lossy().into_owned())?;
+        }
+        Outcome::Skipped { input, reason } => {
+            d.set_item("status", "skipped")?;
+            d.set_item("input", input.to_string_lossy().into_owned())?;
+            d.set_item("reason", reason.clone())?;
+        }
+        Outcome::Failed { input, error } => {
+            d.set_item("status", "failed")?;
+            d.set_item("input", input.to_string_lossy().into_owned())?;
+            d.set_item("error", error.clone())?;
+        }
+    }
+    Ok(d.into())
+}
+
+/// Convert many files, optionally in parallel, exactly like the CLI's
+/// `convert` subcommand: same naming rules, same dry-run/overwrite/format
+/// semantics. Returns one status dict per input, in input order. Used by
+/// the `raw2nii` console script; `convert()` above remains the simple
+/// single-file library entry point.
+#[pyfunction]
+#[pyo3(signature = (inputs, output_dir=None, overwrite=false, compress_level=6, jobs=None, dry_run=false, format="nii-gz"))]
+#[allow(clippy::too_many_arguments)]
+fn _convert_many(
+    py: Python<'_>,
+    inputs: Vec<PathBuf>,
+    output_dir: Option<PathBuf>,
+    overwrite: bool,
+    compress_level: u32,
+    jobs: Option<usize>,
+    dry_run: bool,
+    format: &str,
+) -> PyResult<Vec<Py<PyDict>>> {
+    let fmt = parse_format(format)?;
+    let registry = registry();
+
+    let outcomes: Vec<Outcome> = py.allow_threads(|| {
+        let run = || {
+            inputs
+                .par_iter()
+                .map(|input| {
+                    convert_one(
+                        &registry,
+                        input,
+                        output_dir.as_deref(),
+                        overwrite,
+                        compress_level,
+                        fmt,
+                        !dry_run,
+                    )
+                })
+                .collect::<Vec<_>>()
+        };
+        match jobs {
+            Some(n) => rayon::ThreadPoolBuilder::new()
+                .num_threads(n)
+                .build()
+                .expect("thread pool builds with a caller-supplied thread count")
+                .install(run),
+            None => run(),
+        }
+    });
+
+    outcomes.iter().map(|o| outcome_to_dict(py, o)).collect()
+}
+
+/// Build a verified `tar.zst` snapshot of `source_dir` (excluding
+/// `exclude`, normally the output directory) at `archive_path`. Returns
+/// whether the archive verified against the source files on disk.
+#[pyfunction]
+fn _build_and_verify_archive(
+    source_dir: PathBuf,
+    archive_path: PathBuf,
+    exclude: PathBuf,
+) -> PyResult<bool> {
+    raw2nii_convert::archive::build_archive(&source_dir, &archive_path, &exclude)
+        .map_err(|e| IoError::new_err(e.to_string()))?;
+    raw2nii_convert::archive::verify_archive(&archive_path, &source_dir, &exclude)
+        .map_err(|e| IoError::new_err(e.to_string()))
+}
+
 #[pymodule]
 fn raw2nii(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(pyo3::wrap_pyfunction!(read, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(convert, m)?)?;
+    m.add_function(pyo3::wrap_pyfunction!(_convert_many, m)?)?;
+    m.add_function(pyo3::wrap_pyfunction!(_build_and_verify_archive, m)?)?;
     m.add_class::<PyDataset>()?;
 
     m.add("Raw2NiiError", py.get_type_bound::<Raw2NiiError>())?;

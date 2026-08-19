@@ -67,25 +67,28 @@ deleted.
 
 ## Architecture
 
-A Cargo workspace of three crates:
+A Cargo workspace of five crates:
 
 | Crate | Responsibility |
 |---|---|
 | `raw2nii-core` | The `MrsDataset` interchange type, the `Backend` trait and `Registry`, the FFT, the NIfTI-MRS JSON header-extension builder, and the NIfTI-2 writer. Never prints, never calls `process::exit`. |
 | `raw2nii-ge` | Everything GE-specific: MATLAB v7.3 (`.mat`) reading, typed header access, SVS/MRSI flavor detection, and the two readers. Implements `Backend` as `GeMatBackend`. |
-| `raw2nii-cli` | The `raw2nii` binary: argument parsing, parallel conversion, reporting, and archiving. The only crate that prints or exits. |
+| `raw2nii-convert` | Shared conversion, discovery, archive, and reporting logic used by both the `raw2nii-cli` binary and the `raw2nii-py` Python bindings, so the two front ends can't drift apart on naming or archive rules. |
+| `raw2nii-cli` | The `raw2nii` binary: argument parsing and wiring `raw2nii-convert` together. The only crate that prints or exits. |
+| `raw2nii-py` | Python bindings (pyo3/maturin): the `raw2nii` module plus the `raw2nii` console-script CLI, both built on `raw2nii-convert`. |
 
 Vendor knowledge never crosses into `raw2nii-core` — the writer only ever
 sees an `MrsDataset`. Adding a new scanner vendor means adding a new crate
-that implements `Backend`, registering it in `raw2nii-cli`'s `Registry`, and
-touching nothing else.
+that implements `Backend`, registering it in the `Registry`, and touching
+nothing else.
 
-Within `raw2nii-cli`: `discover` walks the filesystem for `.mat` files,
+Within `raw2nii-convert`: `discover` walks the filesystem for `.mat` files,
 `convert` turns one input into an `Outcome` (`Written` / `Skipped` /
 `Failed`) without ever panicking, `report` renders a batch of outcomes as
 either human-readable lines or JSON Lines, and `archive` builds and verifies
-the `--archive` snapshot. `main` only parses arguments and wires these
-together.
+the `--archive` snapshot. `raw2nii-cli`'s `main` only parses arguments and
+wires these together; `raw2nii-py` wraps the same `convert_one` and
+`archive` functions for its console script.
 
 See `specification.md` for the NIfTI-MRS format itself, and
 `docs/superpowers/plans/` for the implementation plans this codebase was
@@ -114,8 +117,17 @@ command on your `PATH`:
 raw2nii scan.mat                          # convert next to the input
 raw2nii -o out --format nii-gz *.mat      # convert a batch into out/
 raw2nii -r ./study                        # recurse into a directory
+raw2nii -j 4 --dry-run -r ./study         # parallel dry run
+raw2nii -o out --json-log ./study         # machine-readable output
+raw2nii -o out --archive study.tar.zst --delete ./study
 raw2nii --help
 ```
+
+The console script mirrors the native CLI's option set (`-j`/`--jobs`,
+`--dry-run`, `--json-log`, `--archive`/`--delete`, `-v`/`--verbose`) on top of
+the same shared conversion, discovery, and archive code in
+`raw2nii-convert`, plus `-r`/`--recursive` and multi-input support that the
+native CLI doesn't have.
 
 ### Use as a library
 

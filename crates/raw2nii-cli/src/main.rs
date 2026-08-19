@@ -1,14 +1,10 @@
 //! The `raw2nii` binary. This is the only crate that prints or exits.
 
-mod archive;
-mod convert;
-mod discover;
-mod report;
-
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
 use rayon::prelude::*;
+use raw2nii_convert::{archive, convert, discover, report};
 use raw2nii_core::backend::Registry;
 use raw2nii_ge::GeMatBackend;
 
