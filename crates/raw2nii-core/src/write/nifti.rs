@@ -313,6 +313,41 @@ mod tests {
     }
 
     #[test]
+    fn dim4_varies_faster_than_dim5_in_the_byte_stream() {
+        // Shape [1,1,1,3,2] has two non-singleton axes of *different* sizes
+        // (t=3, r=2). A wrong or missing axis reversal changes not just the
+        // order but the effective traversal shape, unlike the [1,1,1,4,1]
+        // fixture above (which has only one non-singleton axis, so no
+        // permutation of size-1 axes can change its byte order).
+        let mut data = ArrayD::<Complex<f32>>::zeros(IxDyn(&[1, 1, 1, 3, 2]));
+        for t in 0..3 {
+            for r in 0..2 {
+                data[[0, 0, 0, t, r]] = Complex::new((10 * t + r) as f32, 0.0);
+            }
+        }
+        let ds = MrsDataset {
+            data,
+            tags: [Some(DimTag::Dyn), None, None],
+            affine: identity_affine(),
+            dwell_time_s: 2e-4,
+            meta: Metadata {
+                spectrometer_frequency_mhz: vec![19.5934],
+                resonant_nucleus: vec!["2H".to_string()],
+                extra: serde_json::Map::new(),
+                warnings: vec![],
+            },
+        };
+        let b = serialise(&ds).unwrap();
+        let vox_offset = i64_at(&b, 168) as usize;
+        let expected = [0.0f32, 10.0, 20.0, 1.0, 11.0, 21.0];
+        for (i, &want) in expected.iter().enumerate() {
+            let off = vox_offset + i * 8; // 8 bytes per complex sample (f32 re + f32 im)
+            let got = f32::from_le_bytes(b[off..off + 4].try_into().unwrap());
+            assert_eq!(got, want, "sample {i} at byte offset {off}");
+        }
+    }
+
+    #[test]
     fn gzip_output_round_trips_to_the_uncompressed_bytes() {
         use std::io::Read as _;
 
