@@ -5,6 +5,7 @@ pub mod dataset;
 pub mod error;
 pub mod fft;
 pub mod meta;
+pub mod write;
 
 pub use dataset::{identity_affine, DimTag, Metadata, MrsDataset};
 pub use error::{Raw2NiiError, Result};
