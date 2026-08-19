@@ -46,7 +46,7 @@
 - Consumes: nothing.
 - Produces: `pub fn discover(path: &Path) -> std::io::Result<Vec<PathBuf>>` — sorted, recursive `.mat` file list; a file argument returns itself unchecked.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `crates/raw2nii-cli/src/discover.rs`:
 
@@ -112,12 +112,12 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cargo test -p raw2nii-cli discover`
 Expected: FAIL — `tempfile` is not a dependency yet, so the crate does not compile.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Add to `crates/raw2nii-cli/Cargo.toml`:
 
@@ -128,12 +128,12 @@ tempfile = "3"
 
 Add `mod discover;` near the top of `crates/raw2nii-cli/src/main.rs`, delete the existing inline `fn discover(...)`, and change its one call site from `discover(&path)` to `discover::discover(&path)`.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cargo test -p raw2nii-cli discover`
 Expected: PASS — 3 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add crates/raw2nii-cli/
@@ -157,7 +157,7 @@ git commit -m "refactor: extract file discovery into its own module"
 
 **Context:** `convert_one` currently returns `Result<Option<PathBuf>, Box<dyn Error>>` and the caller in `main` prints and tallies failures inline. Folding success/skip/failure into one `Outcome` enum is what Tasks 3–5 need: rayon collects a `Vec<Outcome>` in input order, `report` renders it two ways, and dry-run/archive both need to inspect it after the fact instead of re-deriving state from side effects.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `crates/raw2nii-cli/src/convert.rs`:
 
@@ -379,12 +379,12 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cargo test -p raw2nii-cli convert::`
 Expected: FAIL — `convert` module does not exist, and `clap::ValueEnum` derive is unused elsewhere so this is a clean new-symbol failure.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Add `mod convert;` to `crates/raw2nii-cli/src/main.rs`. Delete the inline `convert_one` and `stem_for` functions and their `use raw2nii_ge::{is_unlocalised, output_stem};` import. Update the call site inside the `for input in inputs` loop:
 
@@ -416,12 +416,12 @@ Add `mod convert;` to `crates/raw2nii-cli/src/main.rs`. Delete the inline `conve
 
 (`OutputFormat::NiiGz` and `write: true` are hard-coded here; Task 3 threads them through from clap, Task 4 wires up `--dry-run`.)
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cargo test -p raw2nii-cli`
 Expected: PASS — all `convert::` and `discover::` tests, plus the CLI still builds.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add crates/raw2nii-cli/
@@ -441,7 +441,7 @@ git commit -m "refactor: extract conversion into an Outcome-returning module"
 
 **Context:** `Registry` holds `Box<dyn Backend>` where `Backend: Send + Sync` is already required (`crates/raw2nii-core/src/backend.rs:19`), so sharing one `Registry` across threads via a plain reference is sound. `rayon`'s `par_iter().map(f).collect::<Vec<_>>()` preserves input order regardless of which thread finishes first — no explicit sorting needed.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add to `crates/raw2nii-cli/src/convert.rs`, inside `mod tests`:
 
@@ -470,12 +470,12 @@ Add to `crates/raw2nii-cli/src/convert.rs`, inside `mod tests`:
     }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cargo test -p raw2nii-cli convert::tests::parallel_conversion_preserves_input_order`
 Expected: FAIL — `rayon` is not a dependency, so `use rayon::prelude::*` does not resolve.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Add to the root `Cargo.toml` `[workspace.dependencies]`:
 
@@ -543,12 +543,12 @@ Replace the sequential `for input in inputs { ... }` loop with a parallel map th
     }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cargo test -p raw2nii-cli`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add Cargo.toml crates/raw2nii-cli/
@@ -566,7 +566,7 @@ git commit -m "feat: convert inputs in parallel with rayon"
 - Consumes: `convert::{convert_one, OutputFormat}` (Tasks 2–3).
 - Produces: `raw2nii convert --dry-run <path>` reports every planned output without writing; `raw2nii convert --format nii <path>` writes uncompressed `.nii` instead of `.nii.gz`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add an integration test, `crates/raw2nii-cli/tests/dry_run.rs`:
 
@@ -631,12 +631,12 @@ fn format_nii_writes_uncompressed() {
 
 Add `tempfile = "3"` and (already present from Task 1) to `[dev-dependencies]`, and add `raw2nii-ge` to `[dev-dependencies]` if it is only a normal dependency today — check `crates/raw2nii-cli/Cargo.toml`; it is already a `[dependencies]` entry, so no change needed there.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cargo test -p raw2nii-cli --test dry_run`
 Expected: FAIL — `--dry-run` and `--format` are not recognised clap arguments (clap exits non-zero with a usage error).
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 In `crates/raw2nii-cli/src/main.rs`, add to the `Convert` variant:
 
@@ -693,12 +693,12 @@ Destructure `dry_run` and `format` out of `Command::Convert { .. }`, and pass th
         .collect();
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cargo test -p raw2nii-cli --test dry_run`
 Expected: PASS — 2 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add crates/raw2nii-cli/
@@ -720,7 +720,7 @@ git commit -m "feat: --dry-run and --format nii/nii-gz"
   - `pub fn render_summary_json(outcomes: &[Outcome]) -> String` — one JSON object: `{"written":N,"skipped":N,"failed":N}`.
   - `raw2nii convert --json-log <path>` prints one `render_json_line` per outcome to stdout instead of the human-readable lines, followed by one `render_summary_json` line.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `crates/raw2nii-cli/src/report.rs`:
 
@@ -804,12 +804,12 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cargo test -p raw2nii-cli report::`
 Expected: FAIL — `serde_json` (already a workspace dep used by `raw2nii-core`, but not yet by `raw2nii-cli`) is not in scope, and the `report` module does not exist.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Add to `crates/raw2nii-cli/Cargo.toml` `[dependencies]`:
 
@@ -854,12 +854,12 @@ Replace the reporting loop (from Task 4) with a branch on `json_log`:
     }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cargo test -p raw2nii-cli`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add crates/raw2nii-cli/
@@ -882,7 +882,7 @@ git commit -m "feat: --json-log for machine-readable conversion output"
 
 **Context:** `exclude` exists because "the parent directory, output excluded" (spec follow-on bullet) means: when `-o` points inside the same tree being archived, the freshly written `.nii.gz` files must not end up inside their own source archive.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `crates/raw2nii-cli/src/archive.rs`:
 
@@ -1019,12 +1019,12 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cargo test -p raw2nii-cli archive::`
 Expected: FAIL — `tar` and `zstd` are not dependencies yet.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Add to the root `Cargo.toml` `[workspace.dependencies]`:
 
@@ -1042,12 +1042,12 @@ zstd.workspace = true
 
 Add `mod archive;` to `crates/raw2nii-cli/src/main.rs` (wiring happens in Task 7).
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cargo test -p raw2nii-cli archive::`
 Expected: PASS — 3 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add Cargo.toml crates/raw2nii-cli/
@@ -1067,7 +1067,7 @@ git commit -m "feat: tar.zst archive build and byte-size verification"
 
 **Context:** Archiving and deletion only make sense for a directory input with no failures — a single-file input has nothing worth snapshotting, and deleting after a partial failure would destroy data whose conversion never happened. Both restrictions are enforced explicitly, with a clear message, rather than silently doing something narrower than what was asked.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add to `crates/raw2nii-cli/tests/dry_run.rs` (the file created in Task 4):
 
@@ -1138,12 +1138,12 @@ fn copy_dir(from: &std::path::Path, to: &std::path::Path) {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cargo test -p raw2nii-cli --test dry_run archive_then_delete`
 Expected: FAIL — `--archive`/`--delete` are not recognised clap arguments.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Add to the `Convert` variant in `crates/raw2nii-cli/src/main.rs`:
 
@@ -1204,12 +1204,12 @@ Note the `exclude` default: when `-o` is not given, outputs land next to each in
             let exclude = output.clone().unwrap_or_else(|| path.join(".raw2nii-no-exclude"));
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cargo test -p raw2nii-cli`
 Expected: PASS — all unit and integration tests, including `archive_then_delete_removes_originals_but_keeps_outputs`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add crates/raw2nii-cli/
@@ -1220,15 +1220,15 @@ git commit -m "feat: --archive/--delete, gated on verified tar.zst snapshots"
 
 ## Definition of Done
 
-- [ ] `cargo test --workspace` passes with `tests/datasets/` present.
-- [ ] `cargo test --workspace` passes with `tests/datasets/` absent (data-dependent tests print SKIP).
-- [ ] `cargo clippy --workspace --all-targets -- -D warnings` is clean.
-- [ ] `raw2nii convert --dry-run tests/datasets/MRS_2H` prints the planned output path and writes nothing.
-- [ ] `raw2nii convert --format nii -o /tmp/out tests/datasets/MRS_2H` writes `exam20000_series06_2H_svs-unloc.nii` (not `.nii.gz`).
-- [ ] `raw2nii convert --json-log tests/datasets` prints one JSON object per file plus a summary line, and every line parses as JSON.
-- [ ] `raw2nii convert --delete tests/datasets` (no `--archive`) exits non-zero with a usage error naming both flags.
-- [ ] On a throwaway copy: `raw2nii convert --archive out.tar.zst --delete <dir>` leaves the converted outputs in place, removes the original `.mat` files, and the archive verifies.
-- [ ] `raw2nii-core` and `raw2nii-ge` are unmodified by this plan (`git diff --stat` on `main` shows changes confined to `Cargo.toml` and `crates/raw2nii-cli/`).
+- [x] `cargo test --workspace` passes with `tests/datasets/` present.
+- [x] `cargo test --workspace` passes with `tests/datasets/` absent (data-dependent tests print SKIP).
+- [x] `cargo clippy --workspace --all-targets -- -D warnings` is clean.
+- [x] `raw2nii convert --dry-run tests/datasets/MRS_2H` prints the planned output path and writes nothing.
+- [x] `raw2nii convert --format nii -o /tmp/out tests/datasets/MRS_2H` writes `exam20000_series06_2H_svs-unloc.nii` (not `.nii.gz`).
+- [x] `raw2nii convert --json-log tests/datasets` prints one JSON object per file plus a summary line, and every line parses as JSON.
+- [x] `raw2nii convert --delete tests/datasets` (no `--archive`) exits non-zero with a usage error naming both flags.
+- [x] On a throwaway copy: `raw2nii convert --archive out.tar.zst --delete <dir>` leaves the converted outputs in place, removes the original `.mat` files, and the archive verifies.
+- [x] `raw2nii-core` and `raw2nii-ge` are unmodified by this plan (`git diff --stat` on `main` shows changes confined to `Cargo.toml` and `crates/raw2nii-cli/`).
 
 ## Follow-on Plans
 
