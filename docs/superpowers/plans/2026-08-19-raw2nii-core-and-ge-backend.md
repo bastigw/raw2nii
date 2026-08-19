@@ -66,7 +66,7 @@
 - Consumes: nothing.
 - Produces: `raw2nii_ge::samples::sample_mat(name: &str) -> Option<std::path::PathBuf>` — returns the `ScanArchive*.mat` inside `tests/datasets/<name>/`, or `None` when the data is absent.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `crates/raw2nii-ge/src/samples.rs`:
 
@@ -120,12 +120,12 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cargo test -p raw2nii-ge`
 Expected: FAIL — the workspace and crates do not exist yet (`error: could not find Cargo.toml`).
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Root `Cargo.toml`:
 
@@ -207,12 +207,12 @@ pub mod samples;
 
 Create `crates/raw2nii-cli/Cargo.toml` with a `[[bin]]` placeholder and `crates/raw2nii-cli/src/main.rs` containing `fn main() {}` so the workspace builds.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cargo test -p raw2nii-ge`
 Expected: PASS — 2 tests. `finds_svs_sample_or_skips` prints `SKIP` if the datasets are absent, which is a pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add Cargo.toml rust-toolchain.toml crates/
@@ -240,7 +240,7 @@ git commit -m "feat: cargo workspace skeleton and sample-data helper"
 
 **Context:** MATLAB v7.3 is HDF5 with dimensions stored reversed. `h5dump` reporting `(2048, 64)` means the MATLAB array is `64 x 2048`. MATLAB strings are stored as `uint16` character-code arrays.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `crates/raw2nii-ge/src/mat/file.rs`:
 
@@ -314,12 +314,12 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cargo test -p raw2nii-ge mat::file`
 Expected: FAIL — `MatFile` is not defined.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Add to `crates/raw2nii-ge/Cargo.toml`:
 
@@ -439,14 +439,14 @@ impl MatFile {
 
 Add `pub mod mat;` to `crates/raw2nii-ge/src/lib.rs`.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cargo test -p raw2nii-ge mat::file`
 Expected: PASS — 6 tests.
 
 Note: the first build compiles libhdf5 from source and takes several minutes. This is expected and happens once.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add crates/raw2nii-ge/
@@ -467,7 +467,7 @@ git commit -m "feat: MAT v7.3 reader with MATLAB dimension reversal"
 
 **Context:** MATLAB v7.3 stores complex data as an HDF5 compound type with `real` and `imag` members. MATLAB drops trailing singleton dimensions, so `MRSI_13C` `/spec` is 3-D where the size vector says 4-D — the reader right-pads.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `crates/raw2nii-ge/src/mat/complex.rs`:
 
@@ -524,12 +524,12 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cargo test -p raw2nii-ge mat::complex`
 Expected: FAIL — `complex_array` is not defined.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Create `crates/raw2nii-ge/src/mat/complex.rs`:
 
@@ -608,12 +608,12 @@ Add to `crates/raw2nii-ge/src/mat/file.rs`, inside `impl MatFile`:
 
 Add `pub mod complex;` to `crates/raw2nii-ge/src/mat/mod.rs`.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cargo test -p raw2nii-ge mat::complex`
 Expected: PASS — 4 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add crates/raw2nii-ge/
@@ -638,7 +638,7 @@ git commit -m "feat: complex array reading with trailing-singleton padding"
   - `MrsDataset { data: ArrayD<Complex<f32>>, tags: [Option<DimTag>; 3], affine: [[f64; 4]; 4], dwell_time_s: f64, meta: Metadata }`
   - `MrsDataset::validate(&self) -> Result<()>`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `crates/raw2nii-core/src/dataset.rs`:
 
@@ -712,12 +712,12 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cargo test -p raw2nii-core dataset`
 Expected: FAIL — `MrsDataset` is not defined.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Create `crates/raw2nii-core/src/error.rs`:
 
@@ -857,12 +857,12 @@ pub use dataset::{identity_affine, DimTag, Metadata, MrsDataset};
 pub use error::{Raw2NiiError, Result};
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cargo test -p raw2nii-core dataset`
 Expected: PASS — 6 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add crates/raw2nii-core/
@@ -887,7 +887,7 @@ git commit -m "feat: core error type and MrsDataset contract"
 
 **Context:** Ported from `xmris.processing.fid.to_fid`: `ifftshift` → `ifftn(norm="ortho")` → time coordinates. `rustfft` does not normalise, so the `1/sqrt(N)` factor is applied explicitly.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `crates/raw2nii-core/src/fft.rs`:
 
@@ -967,12 +967,12 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cargo test -p raw2nii-core fft`
 Expected: FAIL — `ifftshift` is not defined.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Add to `crates/raw2nii-core/Cargo.toml`:
 
@@ -1042,12 +1042,12 @@ pub fn fid_to_spec(fid: &[Complex<f32>]) -> Vec<Complex<f32>> {
 
 Add `pub mod fft;` to `crates/raw2nii-core/src/lib.rs`.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cargo test -p raw2nii-core fft`
 Expected: PASS — 6 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add crates/raw2nii-core/
@@ -1072,7 +1072,7 @@ git commit -m "feat: orthonormal FFT ported from xmris"
 
 **Context:** `scan_date` is `MM/DD/YY` with a 1900 year offset — `125` means 2025. `specnuc` gives the nucleus: 1 → `1H`, 2 → `2H`, 13 → `13C`, 19 → `19F`, 23 → `23NA`, 31 → `31P`. Unrecognised codes produce a warning and a raw-code string, never an error.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `crates/raw2nii-ge/src/header/fields.rs`:
 
@@ -1158,12 +1158,12 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cargo test -p raw2nii-ge header`
 Expected: FAIL — `GeHeader` is not defined.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Create `crates/raw2nii-ge/src/header/mod.rs`:
 
@@ -1288,12 +1288,12 @@ impl GeHeader {
 
 Add `pub mod header;` to `crates/raw2nii-ge/src/lib.rs`.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cargo test -p raw2nii-ge header`
 Expected: PASS — 7 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add crates/raw2nii-ge/
@@ -1321,7 +1321,7 @@ git commit -m "feat: typed GE header access with nucleus and datetime mapping"
 
 **`grid`:** NIfTI's affine maps voxel index (0,0,0) to the translation vector — the corner of the array, not its center. `h.ctr` is the volume's geometric center, so for a single-voxel SVS acquisition (`grid = [1,1,1]`) center and corner coincide and no correction is needed, but for an MRSI grid with more than one voxel along an axis, the translation must be offset back from `ctr` by half the total extent along that axis, or every MRSI voxel lands shifted from its true position. `build_affine` takes `grid` so it can compute that offset; Task 11 (SVS) always passes `[1, 1, 1]`, Task 12 (MRSI) passes the real `[nx, ny, nz]`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `crates/raw2nii-ge/src/header/geometry.rs`:
 
@@ -1426,12 +1426,12 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cargo test -p raw2nii-ge geometry`
 Expected: FAIL — `svs_localisation` is not defined.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Create `crates/raw2nii-ge/src/header/geometry.rs`:
 
@@ -1587,12 +1587,12 @@ fn cross(a: [f64; 3], b: [f64; 3]) -> [f64; 3] {
 
 Add `pub mod geometry;` to `crates/raw2nii-ge/src/header/mod.rs`.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cargo test -p raw2nii-ge geometry`
 Expected: PASS — 8 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add crates/raw2nii-ge/
@@ -1613,7 +1613,7 @@ git commit -m "feat: GE geometry with unlocalised-pulse and MRSI rules"
 
 **Context (spec §2.3):** `SpectrometerFrequency` and `ResonantNucleus` are required and must be JSON **arrays** even with one element. `dim_5`/`dim_6`/`dim_7` carry the dimension tags.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `crates/raw2nii-core/src/meta/json.rs`:
 
@@ -1692,12 +1692,12 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cargo test -p raw2nii-core meta`
 Expected: FAIL — `build_extension` is not defined.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Create `crates/raw2nii-core/src/meta/mod.rs`:
 
@@ -1769,12 +1769,12 @@ pub fn build_extension(ds: &MrsDataset) -> Vec<u8> {
 
 Add `pub mod meta;` to `crates/raw2nii-core/src/lib.rs`.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cargo test -p raw2nii-core meta`
 Expected: PASS — 5 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add crates/raw2nii-core/
@@ -1797,7 +1797,7 @@ git commit -m "feat: NIfTI-MRS JSON header extension builder"
 
 **Context:** NIfTI-2 header is exactly 540 bytes in the field order below, followed by a 4-byte extension flag, the extension, then the data.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `crates/raw2nii-core/src/write/nifti.rs`:
 
@@ -1920,12 +1920,12 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cargo test -p raw2nii-core write`
 Expected: FAIL — `serialise` is not defined.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Add to `crates/raw2nii-core/Cargo.toml`:
 
@@ -2119,12 +2119,12 @@ pub fn write_file(ds: &MrsDataset, path: &Path, gzip_level: u32) -> Result<()> {
 
 Add `pub mod write;` to `crates/raw2nii-core/src/lib.rs`.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cargo test -p raw2nii-core write`
 Expected: PASS — 10 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add crates/raw2nii-core/
@@ -2143,7 +2143,7 @@ git commit -m "feat: NIfTI-2 writer with MRS extension and atomic output"
 - Consumes: `MatFile` from Task 2.
 - Produces: `Flavor` enum (`Svs`, `Mrsi`) and `detect(m: &MatFile) -> Option<Flavor>`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `crates/raw2nii-ge/src/flavor.rs`:
 
@@ -2183,12 +2183,12 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cargo test -p raw2nii-ge flavor`
 Expected: FAIL — `detect` is not defined.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Create `crates/raw2nii-ge/src/flavor.rs`:
 
@@ -2219,12 +2219,12 @@ pub fn detect(m: &MatFile) -> Option<Flavor> {
 
 Add `pub mod flavor;` to `crates/raw2nii-ge/src/lib.rs`.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cargo test -p raw2nii-ge flavor`
 Expected: PASS — 2 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add crates/raw2nii-ge/
@@ -2245,7 +2245,7 @@ git commit -m "feat: SVS/MRSI flavor detection"
 
 **Context:** `/fid` is MATLAB `(rows, samples)` and already time-domain. Output is `(1, 1, 1, samples, rows)` with `dim_5 = DIM_DYN`. **No chop, no conjugation** — spec §4.1.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `crates/raw2nii-ge/src/read/svs.rs`:
 
@@ -2353,12 +2353,12 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cargo test -p raw2nii-ge read::svs`
 Expected: FAIL — `read_svs` is not defined.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Create `crates/raw2nii-ge/src/read/mod.rs`:
 
@@ -2455,12 +2455,12 @@ pub fn read_svs(m: &MatFile, h: &GeHeader) -> Result<MrsDataset> {
 
 Add `pub mod read;` to `crates/raw2nii-ge/src/lib.rs`, and add `serde_json.workspace = true` plus `num-complex.workspace = true` to `crates/raw2nii-ge/Cargo.toml`.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cargo test -p raw2nii-ge read::svs`
 Expected: PASS — 7 tests. `conjugation_is_not_applied` reproduces the spec §4.1 measurement (ratio ≈ 5.0).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add crates/raw2nii-ge/
@@ -2481,7 +2481,7 @@ git commit -m "feat: SVS reader, no chop and no conjugation per spec 4.1"
 
 **Context:** `/spec` is MATLAB `(nspec, nx, ny, nz)` and frequency-domain. NIfTI-MRS requires time domain, so each voxel's spectrum goes through `spec_to_fid`. Output is `(nx, ny, nz, nspec)`, `dim[0] = 4`, no dimension tags. The grid is the stored (zero-filled) size, never `nn`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `crates/raw2nii-ge/src/read/mrsi.rs`:
 
@@ -2569,12 +2569,12 @@ mod tests {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cargo test -p raw2nii-ge read::mrsi`
 Expected: FAIL — `read_mrsi` is not defined.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Create `crates/raw2nii-ge/src/read/mrsi.rs`:
 
@@ -2695,12 +2695,12 @@ pub fn read_mrsi(m: &MatFile, h: &GeHeader) -> Result<MrsDataset> {
 
 Add `pub mod mrsi;` and `pub use mrsi::read_mrsi;` to `crates/raw2nii-ge/src/read/mod.rs`.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cargo test -p raw2nii-ge read::mrsi`
 Expected: PASS — 7 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add crates/raw2nii-ge/
@@ -2727,7 +2727,7 @@ git commit -m "feat: MRSI reader with spectrum-to-FID transform"
 
 **Context:** Naming is `exam{ex_no}_series{se_no:02}_{nucleus}_{type}` (spec §7.1), e.g. `exam20000_series06_2H_svs-unloc`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `crates/raw2nii-ge/src/lib.rs`:
 
@@ -2843,12 +2843,12 @@ mod backend_tests {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cargo test -p raw2nii-ge backend_tests`
 Expected: FAIL — `GeMatBackend` is not defined.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Create `crates/raw2nii-core/src/backend.rs`:
 
@@ -2994,12 +2994,12 @@ pub fn is_unlocalised(ds: &MrsDataset) -> bool {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cargo test -p raw2nii-ge backend_tests`
 Expected: PASS — 8 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add crates/
@@ -3019,7 +3019,7 @@ git commit -m "feat: backend trait, registry and GE fidall .mat backend"
 
 **Context:** Directory recursion, archiving, deletion and parallelism are Plan 2. This task delivers single-file and simple-directory conversion so the pipeline is usable end to end.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `crates/raw2nii-cli/tests/cli.rs`:
 
@@ -3106,12 +3106,12 @@ fn unreadable_input_exits_non_zero() {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cargo test -p raw2nii-cli`
 Expected: FAIL — the binary has no `convert` subcommand, so the first test's status is non-zero.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Set `crates/raw2nii-cli/Cargo.toml`:
 
@@ -3309,12 +3309,12 @@ fn stem_for(
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cargo test -p raw2nii-cli`
 Expected: PASS — 3 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add crates/raw2nii-cli/
@@ -3336,7 +3336,7 @@ git commit -m "feat: raw2nii convert CLI"
 
 **Context (spec §9):** Conformance asserts the standard's hard requirements against every sample. Goldens catch unintended changes; `RAW2NII_BLESS=1` regenerates them. Goldens are small enough to commit even though the source datasets are not.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `crates/raw2nii-ge/tests/conformance.rs`:
 
@@ -3559,12 +3559,12 @@ fn output_matches_the_goldens() {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cargo test -p raw2nii-ge --test golden`
 Expected: FAIL with "no golden for MRS_2H" when the datasets are present. (With the datasets absent it prints SKIP and passes — that is correct behaviour.)
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Goldens are generated, not hand-written:
 
@@ -3583,12 +3583,12 @@ Create `tests/goldens/.gitkeep` as an empty file so the directory exists on a fr
 
 Inspect the generated files before committing — each should contain one line of the form `<16 hex chars>  <N> bytes`.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cargo test --workspace`
 Expected: PASS — every test across all three crates. With the datasets absent, the data-dependent tests print SKIP and pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add crates/raw2nii-ge/tests/ tests/goldens/ .gitignore
@@ -3599,12 +3599,12 @@ git commit -m "test: NIfTI-MRS conformance and golden-file regression tests"
 
 ## Definition of Done
 
-- [ ] `cargo test --workspace` passes with the sample datasets present.
-- [ ] `cargo test --workspace` passes with `tests/datasets/` absent, printing SKIP for data-dependent tests.
-- [ ] `cargo clippy --workspace --all-targets -- -D warnings` is clean.
-- [ ] `raw2nii convert tests/datasets/MRS_2H -o /tmp/out` writes `exam20000_series06_2H_svs-unloc.nii.gz`.
-- [ ] All six `.mat` datasets convert and pass conformance.
-- [ ] `raw2nii-core` contains no `println!`, no `eprintln!` outside `#[cfg(test)]`, and no `process::exit`.
+- [x] `cargo test --workspace` passes with the sample datasets present.
+- [x] `cargo test --workspace` passes with `tests/datasets/` absent, printing SKIP for data-dependent tests.
+- [x] `cargo clippy --workspace --all-targets -- -D warnings` is clean.
+- [x] `raw2nii convert tests/datasets/MRS_2H -o /tmp/out` writes `exam20000_series06_2H_svs-unloc.nii.gz`.
+- [x] All six `.mat` datasets convert and pass conformance.
+- [x] `raw2nii-core` contains no `println!`, no `eprintln!` outside `#[cfg(test)]`, and no `process::exit`.
 
 ## Follow-on Plans
 
