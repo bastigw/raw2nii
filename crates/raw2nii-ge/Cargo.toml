@@ -11,3 +11,4 @@ ndarray.workspace = true
 num-complex.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
+hdf5-metno = { version = "0.10", features = ["static"] }

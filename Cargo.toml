@@ -4,7 +4,7 @@ members = ["crates/raw2nii-core", "crates/raw2nii-ge", "crates/raw2nii-cli"]
 
 [workspace.package]
 edition = "2021"
-rust-version = "1.75"
+rust-version = "1.80"
 license = "MIT"
 
 [workspace.dependencies]
