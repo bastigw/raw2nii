@@ -91,12 +91,20 @@ pub fn mrsi_localisation(h: &GeHeader, grid: [usize; 3]) -> Localisation {
 ///
 /// GE reports coordinates in an RAS-style frame (R, A, S); NIfTI uses LPS-like
 /// qform/sform conventions with x and y negated.
-pub fn build_affine(h: &GeHeader, extents_mm: [f64; 3]) -> [[f64; 4]; 4] {
+///
+/// The translation is the world position of voxel index `(0, 0, 0)` — the
+/// array corner — not `h.ctr`, which is the volume's geometric centre. For a
+/// grid of `n` voxels along a direction, the centre sits at index
+/// `(n - 1) / 2`, so the corner is offset from the centre by that many voxel
+/// extents, back along that direction. For a single-voxel grid (SVS) this
+/// offset is zero and the corner coincides with the centre.
+pub fn build_affine(h: &GeHeader, extents_mm: [f64; 3], grid: [usize; 3]) -> [[f64; 4]; 4] {
     let normal = normalise(h.norm);
     let (col0, col1) = orthogonal_basis(normal);
+    let axes = [col0, col1, normal];
 
     let mut a = [[0.0f64; 4]; 4];
-    for (r, axis) in [col0, col1, normal].iter().enumerate() {
+    for (r, axis) in axes.iter().enumerate() {
         // r indexes the output column, axis is the direction it advances in.
         for c in 0..3 {
             a[c][r] = axis[c] * extents_mm[r];
@@ -109,9 +117,17 @@ pub fn build_affine(h: &GeHeader, extents_mm: [f64; 3]) -> [[f64; 4]; 4] {
         a[1][c] = -a[1][c];
     }
 
-    a[0][3] = -h.ctr[0];
-    a[1][3] = -h.ctr[1];
-    a[2][3] = h.ctr[2];
+    let mut corner = h.ctr;
+    for (r, axis) in axes.iter().enumerate() {
+        let half_extent = extents_mm[r] * (grid[r] as f64 - 1.0) / 2.0;
+        for c in 0..3 {
+            corner[c] -= axis[c] * half_extent;
+        }
+    }
+
+    a[0][3] = -corner[0];
+    a[1][3] = -corner[1];
+    a[2][3] = corner[2];
     a[3] = [0.0, 0.0, 0.0, 1.0];
     a
 }
@@ -225,7 +241,7 @@ mod tests {
     #[test]
     fn affine_scales_rows_by_extent() {
         let h = header("fidall2", 1.0, 80.0, 300.0);
-        let a = build_affine(&h, [10.0, 10.0, 80.0]);
+        let a = build_affine(&h, [10.0, 10.0, 80.0], [1, 1, 1]);
         let col0 = (a[0][0].powi(2) + a[1][0].powi(2) + a[2][0].powi(2)).sqrt();
         let col2 = (a[0][2].powi(2) + a[1][2].powi(2) + a[2][2].powi(2)).sqrt();
         assert!((col0 - 10.0).abs() < 1e-6, "column norm {col0}");
@@ -237,10 +253,60 @@ mod tests {
     fn affine_translation_comes_from_the_centre() {
         let mut h = header("fidall2", 1.0, 80.0, 300.0);
         h.ctr = [1.0, 2.0, 3.0];
-        let a = build_affine(&h, [10.0, 10.0, 10.0]);
+        // grid = [1, 1, 1]: a single voxel, so the corner coincides with the
+        // centre and this is unaffected by the corner-offset fix below.
+        let a = build_affine(&h, [10.0, 10.0, 10.0], [1, 1, 1]);
         // NIfTI is LPS-negated relative to GE's RAS-style centre.
         assert!((a[0][3] - (-1.0)).abs() < 1e-6);
         assert!((a[1][3] - (-2.0)).abs() < 1e-6);
         assert!((a[2][3] - 3.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn affine_translation_offsets_to_the_corner_voxel_for_multi_voxel_grids() {
+        // norm = [0,0,1] (the default in the `header()` test helper) means
+        // normal = [0,0,1] (pure S), and orthogonal_basis([0,0,1]) works out
+        // to col0 = [0,-1,0], col1 = [1,0,0] (traced through the seed/cross
+        // product construction). A 4x4x4 grid with 10mm voxels offsets the
+        // corner from the centre by (4-1)/2 * 10 = 15mm along each of those
+        // three directions: -15 along col0 = +15mm on the A (world Y) axis
+        // before negation, +15mm along col1 = -15mm on the R (world X) axis
+        // before negation, and -15mm along S (world Z, not negated).
+        let mut h = header("fidall2", 1.0, 80.0, 300.0);
+        h.ctr = [0.0, 0.0, 0.0];
+        let a = build_affine(&h, [10.0, 10.0, 10.0], [4, 4, 4]);
+        // (grid - 1) / 2 * extent = 1.5 * 10 = 15mm offset from centre to
+        // corner along each grid axis's real direction, R and A negated
+        // relative to S per the LPS convention.
+        assert!((a[0][3] - 15.0).abs() < 1e-6, "R translation: {}", a[0][3]);
+        assert!(
+            (a[1][3] - (-15.0)).abs() < 1e-6,
+            "A translation: {}",
+            a[1][3]
+        );
+        assert!(
+            (a[2][3] - (-15.0)).abs() < 1e-6,
+            "S translation: {}",
+            a[2][3]
+        );
+    }
+
+    #[test]
+    fn mrsi_extents_are_identical_regardless_of_user14() {
+        let selective = mrsi_localisation(&header("fidall2", 1.0, 15.0, 300.0), [8, 8, 4]);
+        let nonselective = mrsi_localisation(&header("fidall2", 91.0, 15.0, 300.0), [8, 8, 4]);
+        assert_eq!(selective.extents_mm, nonselective.extents_mm);
+        assert!(!selective.warnings.iter().any(|w| w.contains("user14")));
+        assert!(nonselective.warnings.iter().any(|w| w.contains("user14")));
+    }
+
+    #[test]
+    fn svs_psd_check_gates_before_the_user14_check() {
+        // Non-fidall psd with user14 == 91: the psd-not-recognised branch
+        // must win, falling back to slthick rather than treating this as
+        // the non-selective-pulse case.
+        let loc = svs_localisation(&header("echocsi", 91.0, 40.0, 300.0));
+        assert_eq!(loc.extents_mm[2], 40.0);
+        assert!(loc.warnings.iter().any(|w| w.contains("echocsi")));
     }
 }
