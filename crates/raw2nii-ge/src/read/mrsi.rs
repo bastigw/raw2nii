@@ -181,6 +181,90 @@ mod tests {
     }
 
     #[test]
+    fn build_affine_receives_the_real_grid_not_a_placeholder() {
+        // Regression guard for the bug Task 7 found and fixed: build_affine
+        // must be called with the real [nx, ny, nz] grid, not [1,1,1]. A
+        // wrong-grid call would silently pass every other test here (they
+        // only inspect the affine's scale, not its translation), so this
+        // test independently re-derives the expected corner-voxel
+        // translation from h.ctr/h.norm using the SAME formula build_affine
+        // implements (see header/geometry.rs), duplicated here rather than
+        // invoked, so it doesn't just compare build_affine against itself.
+        let p = match sample_mat("MRSI_13C") {
+            Some(p) => p,
+            None => {
+                eprintln!("SKIP: tests/datasets absent");
+                return;
+            }
+        };
+        let m = MatFile::open(&p).unwrap();
+        let h = GeHeader::from_mat(&m).unwrap();
+        let ds = read_mrsi(&m, &h).unwrap();
+
+        // MRSI_13C: dfov 300, 8x8x1 grid -> 37.5mm in plane, slthick 15 in z.
+        let extents_mm = [37.5, 37.5, h.slthick];
+        let grid = [8usize, 8, 1];
+
+        fn normalise(v: [f64; 3]) -> [f64; 3] {
+            let n = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
+            if n == 0.0 {
+                return [0.0, 0.0, 1.0];
+            }
+            [v[0] / n, v[1] / n, v[2] / n]
+        }
+        fn cross(a: [f64; 3], b: [f64; 3]) -> [f64; 3] {
+            [
+                a[1] * b[2] - a[2] * b[1],
+                a[2] * b[0] - a[0] * b[2],
+                a[0] * b[1] - a[1] * b[0],
+            ]
+        }
+        fn orthogonal_basis(n: [f64; 3]) -> ([f64; 3], [f64; 3]) {
+            let seed = if n[0].abs() < 0.9 {
+                [1.0, 0.0, 0.0]
+            } else {
+                [0.0, 1.0, 0.0]
+            };
+            let u = normalise(cross(seed, n));
+            let v = normalise(cross(n, u));
+            (u, v)
+        }
+
+        let normal = normalise(h.norm);
+        let (col0, col1) = orthogonal_basis(normal);
+        let axes = [col0, col1, normal];
+
+        let mut corner = h.ctr;
+        for (r, axis) in axes.iter().enumerate() {
+            let half_extent = extents_mm[r] * (grid[r] as f64 - 1.0) / 2.0;
+            for c in 0..3 {
+                corner[c] -= axis[c] * half_extent;
+            }
+        }
+        let expected_translation = [-corner[0], -corner[1], corner[2]];
+
+        let got = [ds.affine[0][3], ds.affine[1][3], ds.affine[2][3]];
+        for i in 0..3 {
+            assert!(
+                (got[i] - expected_translation[i]).abs() < 1e-6,
+                "translation[{i}]: got {}, expected {}",
+                got[i],
+                expected_translation[i]
+            );
+        }
+
+        // Control: confirm this isn't just h.ctr (negated) -- if it were,
+        // that would mean grid = [1,1,1] was passed instead of the real
+        // [8,8,1], which is exactly the regression this test guards against.
+        let ctr_negated = [-h.ctr[0], -h.ctr[1], h.ctr[2]];
+        assert!(
+            (got[0] - ctr_negated[0]).abs() > 1.0 || (got[1] - ctr_negated[1]).abs() > 1.0,
+            "translation equals plain h.ctr -- build_affine likely received \
+             grid=[1,1,1] instead of the real grid"
+        );
+    }
+
+    #[test]
     fn output_is_time_domain_starting_at_maximum_signal() {
         // A FID peaks at t = 0; a spectrum does not.
         let ds = read_sample!("MRSI_13C");
