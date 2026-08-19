@@ -8,3 +8,10 @@ license.workspace = true
 [[bin]]
 name = "raw2nii"
 path = "src/main.rs"
+
+[dependencies]
+raw2nii-core = { path = "../raw2nii-core" }
+raw2nii-ge = { path = "../raw2nii-ge" }
+clap = { version = "4", features = ["derive"] }
+tracing.workspace = true
+tracing-subscriber = "0.3"
