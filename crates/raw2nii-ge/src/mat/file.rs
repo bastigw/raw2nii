@@ -43,6 +43,11 @@ impl MatFile {
         Ok(Self { file })
     }
 
+    /// Internal accessor so sibling modules can reach the underlying file.
+    pub(crate) fn file_ref(&self) -> &hdf5_metno::File {
+        &self.file
+    }
+
     fn dataset(&self, path: &str) -> Result<hdf5_metno::Dataset, MatError> {
         self.file
             .dataset(path)
