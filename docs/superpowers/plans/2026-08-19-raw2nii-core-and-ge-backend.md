@@ -1314,10 +1314,12 @@ git commit -m "feat: typed GE header access with nucleus and datetime mapping"
   - `Localisation { extents_mm: [f64; 3], warnings: Vec<String> }`
   - `svs_localisation(h: &GeHeader) -> Localisation`
   - `mrsi_localisation(h: &GeHeader, grid: [usize; 3]) -> Localisation`
-  - `build_affine(h: &GeHeader, extents_mm: [f64; 3]) -> [[f64; 4]; 4]`
+  - `build_affine(h: &GeHeader, extents_mm: [f64; 3], grid: [usize; 3]) -> [[f64; 4]; 4]`
   - `pub const UNLOCALISED_MM: f64 = 10000.0`
 
 **Context (spec §6.2):** SVS `roilenx`/`roileny` are 0 on every sample, so in-plane is always unlocalised. For the excitation dimension, `user14 == 91` under a `fidall*` psd means an unlocalised pulse. MRSI never consults `user14` but must log the value it ignored.
+
+**`grid`:** NIfTI's affine maps voxel index (0,0,0) to the translation vector — the corner of the array, not its center. `h.ctr` is the volume's geometric center, so for a single-voxel SVS acquisition (`grid = [1,1,1]`) center and corner coincide and no correction is needed, but for an MRSI grid with more than one voxel along an axis, the translation must be offset back from `ctr` by half the total extent along that axis, or every MRSI voxel lands shifted from its true position. `build_affine` takes `grid` so it can compute that offset; Task 11 (SVS) always passes `[1, 1, 1]`, Task 12 (MRSI) passes the real `[nx, ny, nz]`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -2422,7 +2424,7 @@ pub fn read_svs(m: &MatFile, h: &GeHeader) -> Result<MrsDataset> {
         .map_err(|e| Raw2NiiError::MissingMetadata(format!("/par/f0: {e}")))?;
 
     let loc = svs_localisation(h);
-    let affine = build_affine(h, loc.extents_mm);
+    let affine = build_affine(h, loc.extents_mm, [1, 1, 1]);
 
     let (nucleus, nucleus_warning) = h.nucleus_name();
     let mut warnings = loc.warnings;
@@ -2639,7 +2641,7 @@ pub fn read_mrsi(m: &MatFile, h: &GeHeader) -> Result<MrsDataset> {
     }
 
     let loc = mrsi_localisation(h, [nx, ny, nz]);
-    let affine = build_affine(h, loc.extents_mm);
+    let affine = build_affine(h, loc.extents_mm, [nx, ny, nz]);
 
     let (nucleus, nucleus_warning) = h.nucleus_name();
     let mut warnings = loc.warnings;
