@@ -12,8 +12,10 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: CPython",
 ]
 
-[project.optional-dependencies]
-numpy = ["numpy>=1.20"]
+dependencies = ["numpy>=1.20"]
+
+[project.scripts]
+raw2nii = "raw2nii.cli:main"
 
 [tool.maturin]
 features = ["pyo3/extension-module"]

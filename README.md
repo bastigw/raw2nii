@@ -95,7 +95,28 @@ breakdown).
 ## Python bindings
 
 `crates/raw2nii-py` exposes the core conversion API as a Python module
-(`raw2nii`) via [pyo3](https://pyo3.rs)/[maturin](https://www.maturin.rs).
+(`raw2nii`) via [pyo3](https://pyo3.rs)/[maturin](https://www.maturin.rs), plus
+a `raw2nii` console-script CLI.
+
+### Install as a uv tool (recommended)
+
+```bash
+uv tool install crates/raw2nii-py   # from a checkout
+# or, once published: uv tool install raw2nii
+```
+
+This builds the extension with maturin under the hood and puts a `raw2nii`
+command on your `PATH`:
+
+```bash
+raw2nii scan.mat                          # convert next to the input
+raw2nii -o out --format nii-gz *.mat      # convert a batch into out/
+raw2nii -r ./study                        # recurse into a directory
+raw2nii --help
+```
+
+### Use as a library
+
 Build a wheel or install into the active virtualenv in editable mode:
 
 ```bash
