@@ -3,4 +3,5 @@
 pub mod flavor;
 pub mod header;
 pub mod mat;
+pub mod read;
 pub mod samples;

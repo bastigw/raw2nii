@@ -9,6 +9,7 @@ license.workspace = true
 raw2nii-core = { path = "../raw2nii-core" }
 ndarray.workspace = true
 num-complex.workspace = true
+serde_json.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 hdf5-metno = { version = "0.10", features = ["static", "zlib"] }

@@ -449,6 +449,7 @@ dependencies = [
  "ndarray",
  "num-complex",
  "raw2nii-core",
+ "serde_json",
  "thiserror",
  "tracing",
 ]
