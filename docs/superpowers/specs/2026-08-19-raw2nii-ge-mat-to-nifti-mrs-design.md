@@ -166,12 +166,12 @@ as the rule predicts.
 
 The `.mat` `/fid` arrays show no such alternation:
 
-| dataset | `data_collect_type` | rule says | sign of real part at t=0, per transient |
-|---|---|---|---|
-| `MRS_2H` (unlocalised) | 0 | chopped | all 64 positive |
-| `MRS_2H_TI_400` (unlocalised) | 0 | chopped | all 32 positive |
-| `MRS_2H_slab` | 0 | chopped | all positive bar one low-signal transient |
-| `MRS_2H_TE_60` | 1 | not chopped | all 32 positive |
+| dataset                       | `data_collect_type` | rule says   | sign of real part at t=0, per transient   |
+| ----------------------------- | ------------------- | ----------- | ----------------------------------------- |
+| `MRS_2H` (unlocalised)        | 0                   | chopped     | all 64 positive                           |
+| `MRS_2H_TI_400` (unlocalised) | 0                   | chopped     | all 32 positive                           |
+| `MRS_2H_slab`                 | 0                   | chopped     | all positive bar one low-signal transient |
+| `MRS_2H_TE_60`                | 1                   | not chopped | all 32 positive                           |
 
 The two unlocalised datasets are the decisive case: `data_collect_type = 0` means the raw
 data was chopped, yet `/fid` has no alternation. fidall de-chopped during reconstruction,
@@ -195,12 +195,12 @@ relative frequency appears as a positive, counter-clockwise rotation.
 Measured by locating the dominant peak in fidall's own `/spec`, reading its offset from
 `/hz`, and correlating `/fid` against `exp(+i·2π·Δf·t)` and `exp(-i·2π·Δf·t)`:
 
-| dataset | peak offset | ccw/cw ratio | result |
-|---|---|---|---|
-| `MRS_2H_slab` | +53.71 Hz | **5.04** | counter-clockwise |
-| `MRS_2H_TI_400` | +4.88 Hz | 1.17 | counter-clockwise |
-| `MRS_2H_TE_60` | +2.44 Hz | 1.30 | counter-clockwise |
-| `MRS_2H` | +0.00 Hz | 1.00 | on-resonance; carries no information |
+| dataset         | peak offset | ccw/cw ratio | result                               |
+| --------------- | ----------- | ------------ | ------------------------------------ |
+| `MRS_2H_slab`   | +53.71 Hz   | **5.04**     | counter-clockwise                    |
+| `MRS_2H_TI_400` | +4.88 Hz    | 1.17         | counter-clockwise                    |
+| `MRS_2H_TE_60`  | +2.44 Hz    | 1.30         | counter-clockwise                    |
+| `MRS_2H`        | +0.00 Hz    | 1.00         | on-resonance; carries no information |
 
 `MRS_2H_slab` is the only high-leverage case, its dominant peak being well off-resonance
 while the next strongest is 0.35 of it. The other two agree weakly because their peaks sit
@@ -314,6 +314,7 @@ Rules:
    predicate so that revisiting it is a single-line change, and MRSI geometry logs the
    `user14` value it ignored, so a wrong assumption is visible in the logs rather than
    silent.
+
 4. The rule is scoped to `psdname` matching `fidall*`. An unrecognised psd produces a
    warning and falls back to `slthick`. `MRS_2H_TE_60` is the explicit test case for this
    path.
