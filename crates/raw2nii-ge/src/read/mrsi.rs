@@ -22,6 +22,12 @@ pub fn read_mrsi(m: &MatFile, h: &GeHeader) -> Result<MrsDataset> {
         .map_err(|e| Raw2NiiError::MissingData(format!("/spec: {e}")))?;
 
     let shape = spec.shape().to_vec();
+    if shape.len() != 4 {
+        return Err(Raw2NiiError::DimensionMismatch {
+            expected: vec![4],
+            actual: shape,
+        });
+    }
     let (nspec, nx, ny, nz) = (shape[0], shape[1], shape[2], shape[3]);
 
     // The stored grid is authoritative. `nn` records what was acquired and is
@@ -93,8 +99,21 @@ pub fn read_mrsi(m: &MatFile, h: &GeHeader) -> Result<MrsDataset> {
     extra.insert("PulseSequenceFile".to_string(), json!(h.psdname));
     extra.insert("SpectralWidth".to_string(), json!(1.0 / dwell));
     extra.insert("ProcessingApplied".to_string(), json!(processing));
+    // Finding 5: this is the scan's acquisition time, not the time this
+    // file was converted -- ConversionTime is a NIfTI-MRS standard key with
+    // that latter meaning, so it must not be reused here.
     if let Some(dt) = h.scan_datetime_iso() {
-        extra.insert("ConversionTime".to_string(), json!(dt));
+        extra.insert("ScanDate".to_string(), json!(dt));
+    }
+    // Finding 4: optional metadata; skip silently if absent. MRSI's /par is
+    // thin and has no repetition_time; /h/image/tr carries it in
+    // microseconds (verified against SVS's /par/repetition_time, which
+    // agrees with /h/image/tr / 1e6 exactly on the sample data).
+    if let Ok(te) = m.scalar_f64("/par/te") {
+        extra.insert("EchoTime".to_string(), json!(te));
+    }
+    if let Ok(tr_us) = m.scalar_f64("/h/image/tr") {
+        extra.insert("RepetitionTime".to_string(), json!(tr_us / 1e6));
     }
 
     Ok(MrsDataset {
@@ -212,26 +231,16 @@ mod tests {
             }
             [v[0] / n, v[1] / n, v[2] / n]
         }
-        fn cross(a: [f64; 3], b: [f64; 3]) -> [f64; 3] {
-            [
-                a[1] * b[2] - a[2] * b[1],
-                a[2] * b[0] - a[0] * b[2],
-                a[0] * b[1] - a[1] * b[0],
-            ]
-        }
-        fn orthogonal_basis(n: [f64; 3]) -> ([f64; 3], [f64; 3]) {
-            let seed = if n[0].abs() < 0.9 {
-                [1.0, 0.0, 0.0]
-            } else {
-                [0.0, 1.0, 0.0]
-            };
-            let u = normalise(cross(seed, n));
-            let v = normalise(cross(n, u));
-            (u, v)
+        fn subtract(a: [f64; 3], b: [f64; 3]) -> [f64; 3] {
+            [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
         }
 
         let normal = normalise(h.norm);
-        let (col0, col1) = orthogonal_basis(normal);
+        // Finding 1: in-plane axes come from the trhc/tlhc/brhc corner
+        // triple, matching what build_affine now does -- duplicated here
+        // rather than invoked, so this stays an independent check.
+        let col0 = normalise(subtract(h.trhc, h.tlhc));
+        let col1 = normalise(subtract(h.brhc, h.trhc));
         let axes = [col0, col1, normal];
 
         let mut corner = h.ctr;
@@ -261,6 +270,97 @@ mod tests {
             (got[0] - ctr_negated[0]).abs() > 1.0 || (got[1] - ctr_negated[1]).abs() > 1.0,
             "translation equals plain h.ctr -- build_affine likely received \
              grid=[1,1,1] instead of the real grid"
+        );
+    }
+
+    #[test]
+    fn read_mrsi_rejects_a_spec_with_more_than_four_dimensions() {
+        // Finding 3a: complex_array(path, 4) only right-pads, never
+        // truncates, so a legitimate 5D/6D /spec (spec §2.2's nt/nc
+        // dynamics/coils dimensions) would previously reach the
+        // `spec[[t, x, y, z]]` indexing below with too few indices and
+        // panic. Build a minimal HDF5 file with a 5D /spec to verify the
+        // added guard returns a proper error instead.
+        let mut path = std::env::temp_dir();
+        path.push(format!(
+            "raw2nii_mrsi_dim_guard_test_{}_{}.mat",
+            std::process::id(),
+            "guard"
+        ));
+
+        #[derive(hdf5_metno::H5Type, Clone, Copy)]
+        #[repr(C)]
+        struct C32 {
+            real: f32,
+            imag: f32,
+        }
+
+        {
+            let file = hdf5_metno::File::create(&path).unwrap();
+            let data = vec![
+                C32 {
+                    real: 0.0,
+                    imag: 0.0
+                };
+                2 * 2 * 2 * 2 * 2
+            ];
+            file.new_dataset::<C32>()
+                .shape((2, 2, 2, 2, 2))
+                .create("spec")
+                .unwrap()
+                .write_raw(&data)
+                .unwrap();
+        }
+
+        let m = MatFile::open(&path).unwrap();
+        let h = GeHeader {
+            exam_number: 1,
+            series_number: 1,
+            specnuc: 2,
+            psdname: "fidall2".to_string(),
+            dfov: 300.0,
+            slthick: 15.0,
+            user14: 1.0,
+            norm: [0.0, 0.0, 1.0],
+            tlhc: [0.0, 0.0, 0.0],
+            trhc: [1.0, 0.0, 0.0],
+            brhc: [1.0, 1.0, 0.0],
+            ctr: [0.0, 0.0, 0.0],
+            scan_date: String::new(),
+            scan_time: String::new(),
+        };
+
+        let result = read_mrsi(&m, &h);
+        std::fs::remove_file(&path).ok();
+
+        match result {
+            Err(Raw2NiiError::DimensionMismatch { expected, actual }) => {
+                assert_eq!(expected, vec![4]);
+                assert_eq!(actual, vec![2, 2, 2, 2, 2]);
+            }
+            other => panic!("expected DimensionMismatch, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn scan_date_and_optional_timing_metadata_are_populated() {
+        let ds = read_sample!("MRSI_13C");
+        assert!(
+            ds.meta.extra.get("ScanDate").and_then(|v| v.as_str()).is_some(),
+            "Finding 5: scan acquisition time belongs under ScanDate, not \
+             the standard ConversionTime key"
+        );
+        assert!(
+            ds.meta.extra.get("EchoTime").and_then(|v| v.as_f64()).is_some(),
+            "Finding 4: EchoTime must be populated from /par/te"
+        );
+        assert!(
+            ds.meta
+                .extra
+                .get("RepetitionTime")
+                .and_then(|v| v.as_f64())
+                .is_some(),
+            "Finding 4: RepetitionTime must be populated from /h/image/tr"
         );
     }
 

@@ -59,8 +59,12 @@ fn every_dataset_produces_a_conformant_file() {
             assert!(dwell > 0.0, "{name}: pixdim[4] = {dwell}");
 
             assert_eq!(i32_at(&b, 500), 10, "{name}: xyzt_units");
-            assert_ne!(i32_at(&b, 344), 0, "{name}: qform_code");
-            assert_ne!(i32_at(&b, 348), 0, "{name}: sform_code");
+            // Finding 2: qform_code is intentionally 0 (no qform) since the
+            // quaternion is a hardcoded identity rotation that would
+            // contradict the real, possibly-oblique sform affine. sform is
+            // the sole, authoritative geometry.
+            assert_eq!(i32_at(&b, 344), 0, "{name}: qform_code");
+            assert_eq!(i32_at(&b, 348), 1, "{name}: sform_code");
 
             let intent = &b[508..524];
             let end = intent.iter().position(|&c| c == 0).unwrap_or(intent.len());

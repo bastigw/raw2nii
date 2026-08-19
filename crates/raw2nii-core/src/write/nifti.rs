@@ -103,7 +103,13 @@ pub fn serialise(ds: &MrsDataset) -> Result<Vec<u8>> {
     w.i64(0); // 232 slice_end
     w.fixed(b"raw2nii NIfTI-MRS", 80); // 240 descrip
     w.fixed(b"", 24); // 320 aux_file
-    w.i32(1); // 344 qform_code (scanner anat)
+    // qform_code = 0: no qform. quatern_b/c/d are hardcoded to 0.0 below,
+    // which decodes to an identity rotation -- correct only for axis-aligned
+    // acquisitions. A nonzero qform_code alongside that fake identity
+    // quaternion would contradict the real, possibly-oblique affine in
+    // srow_x/y/z, and some readers (e.g. FSL) prefer a nonzero qform. sform
+    // is the sole, authoritative geometry; see srow_x/y/z below.
+    w.i32(0); // 344 qform_code
     w.i32(1); // 348 sform_code
     w.f64(0.0); // 352 quatern_b
     w.f64(0.0); // 360 quatern_c
@@ -260,10 +266,13 @@ mod tests {
     }
 
     #[test]
-    fn qform_and_sform_are_populated() {
+    fn qform_is_disabled_and_sform_is_authoritative() {
+        // Finding 2: quatern_b/c/d are hardcoded to an identity rotation, so
+        // qform_code must be 0 ("no qform") to avoid contradicting the real,
+        // possibly-oblique affine carried in srow_x/y/z under sform_code.
         let b = serialise(&svs()).unwrap();
-        assert_ne!(i32_at(&b, 344), 0, "qform_code");
-        assert_ne!(i32_at(&b, 348), 0, "sform_code");
+        assert_eq!(i32_at(&b, 344), 0, "qform_code");
+        assert_eq!(i32_at(&b, 348), 1, "sform_code");
     }
 
     #[test]

@@ -28,6 +28,12 @@ pub enum MatError {
     },
     #[error("dataset {path} has {n} elements, expected exactly one")]
     NotScalar { path: String, n: usize },
+    #[error("dataset {path} shape does not match its element count: {source}")]
+    Shape {
+        path: String,
+        #[source]
+        source: ndarray::ShapeError,
+    },
 }
 
 pub struct MatFile {

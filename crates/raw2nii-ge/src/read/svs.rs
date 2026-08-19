@@ -23,7 +23,7 @@ pub fn read_svs(m: &MatFile, h: &GeHeader) -> Result<MrsDataset> {
     let shape = fid.shape().to_vec();
     if shape.len() != 2 {
         return Err(Raw2NiiError::DimensionMismatch {
-            expected: vec![0, 0],
+            expected: vec![2],
             actual: shape,
         });
     }
@@ -61,8 +61,18 @@ pub fn read_svs(m: &MatFile, h: &GeHeader) -> Result<MrsDataset> {
     extra.insert("Manufacturer".to_string(), json!("GE"));
     extra.insert("PulseSequenceFile".to_string(), json!(h.psdname));
     extra.insert("SpectralWidth".to_string(), json!(bw));
+    // Finding 5: this is the scan's acquisition time, not the time this
+    // file was converted -- ConversionTime is a NIfTI-MRS standard key with
+    // that latter meaning, so it must not be reused here.
     if let Some(dt) = h.scan_datetime_iso() {
-        extra.insert("ConversionTime".to_string(), json!(dt));
+        extra.insert("ScanDate".to_string(), json!(dt));
+    }
+    // Finding 4: optional metadata; skip silently if absent.
+    if let Ok(te) = m.scalar_f64("/par/echo_time") {
+        extra.insert("EchoTime".to_string(), json!(te));
+    }
+    if let Ok(tr) = m.scalar_f64("/par/repetition_time") {
+        extra.insert("RepetitionTime".to_string(), json!(tr));
     }
 
     Ok(MrsDataset {
@@ -154,6 +164,29 @@ mod tests {
         let z = (ds.affine[0][2].powi(2) + ds.affine[1][2].powi(2) + ds.affine[2][2].powi(2))
             .sqrt();
         assert!((z - 80.0).abs() < 1e-6, "slab thickness {z}");
+    }
+
+    #[test]
+    fn scan_date_and_optional_timing_metadata_are_populated() {
+        let ds = read_sample!("MRS_2H");
+        assert_eq!(
+            ds.meta.extra.get("ScanDate").and_then(|v| v.as_str()),
+            Some("2025-11-25T10:31:00"),
+            "Finding 5: scan acquisition time belongs under ScanDate, not \
+             the standard ConversionTime key"
+        );
+        assert!(
+            ds.meta.extra.get("EchoTime").and_then(|v| v.as_f64()).is_some(),
+            "Finding 4: EchoTime must be populated from /par/echo_time"
+        );
+        assert!(
+            ds.meta
+                .extra
+                .get("RepetitionTime")
+                .and_then(|v| v.as_f64())
+                .is_some(),
+            "Finding 4: RepetitionTime must be populated from /par/repetition_time"
+        );
     }
 
     #[test]

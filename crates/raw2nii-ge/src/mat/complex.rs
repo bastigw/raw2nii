@@ -44,8 +44,15 @@ impl MatFile {
             .collect();
 
         // Build over the HDF5 shape (C order), then reverse axes to get
-        // MATLAB order.
-        let arr = ArrayD::from_shape_vec(IxDyn(&hdf5_shape), data).expect("shape matches length");
+        // MATLAB order. A well-formed .mat always gives a matching element
+        // count; a corrupt or truncated file might not, so this is a proper
+        // error rather than a panic on untrusted input.
+        let arr = ArrayD::from_shape_vec(IxDyn(&hdf5_shape), data).map_err(|source| {
+            MatError::Shape {
+                path: path.to_string(),
+                source,
+            }
+        })?;
         let mut arr = arr.reversed_axes();
 
         while arr.ndim() < min_ndim {

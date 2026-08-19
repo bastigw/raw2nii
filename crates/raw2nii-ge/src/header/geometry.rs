@@ -100,7 +100,8 @@ pub fn mrsi_localisation(h: &GeHeader, grid: [usize; 3]) -> Localisation {
 /// offset is zero and the corner coincides with the centre.
 pub fn build_affine(h: &GeHeader, extents_mm: [f64; 3], grid: [usize; 3]) -> [[f64; 4]; 4] {
     let normal = normalise(h.norm);
-    let (col0, col1) = orthogonal_basis(normal);
+    let col0 = normalise(subtract(h.trhc, h.tlhc));
+    let col1 = normalise(subtract(h.brhc, h.trhc));
     let axes = [col0, col1, normal];
 
     let mut a = [[0.0f64; 4]; 4];
@@ -142,26 +143,8 @@ fn normalise(v: [f64; 3]) -> [f64; 3] {
     [v[0] / n, v[1] / n, v[2] / n]
 }
 
-/// Two unit vectors completing a right-handed basis with `n`.
-fn orthogonal_basis(n: [f64; 3]) -> ([f64; 3], [f64; 3]) {
-    // Pick whichever cardinal axis is least aligned with n, so the cross
-    // product is well conditioned.
-    let seed = if n[0].abs() < 0.9 {
-        [1.0, 0.0, 0.0]
-    } else {
-        [0.0, 1.0, 0.0]
-    };
-    let u = normalise(cross(seed, n));
-    let v = normalise(cross(n, u));
-    (u, v)
-}
-
-fn cross(a: [f64; 3], b: [f64; 3]) -> [f64; 3] {
-    [
-        a[1] * b[2] - a[2] * b[1],
-        a[2] * b[0] - a[0] * b[2],
-        a[0] * b[1] - a[1] * b[0],
-    ]
+fn subtract(a: [f64; 3], b: [f64; 3]) -> [f64; 3] {
+    [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
 }
 
 #[cfg(test)]
@@ -178,7 +161,14 @@ mod tests {
             slthick,
             user14,
             norm: [0.0, 0.0, 1.0],
+            // Chosen so trhc - tlhc normalises to [0,-1,0] and brhc - trhc
+            // normalises to [1,0,0] -- the same col0/col1 the old
+            // orthogonal_basis([0,0,1]) construction produced, so the affine
+            // tests below (written against that basis) still hold under the
+            // corner-derived construction.
             tlhc: [100.0, 100.0, 0.0],
+            trhc: [100.0, 0.0, 0.0],
+            brhc: [200.0, 0.0, 0.0],
             ctr: [0.0, 0.0, 0.0],
             scan_date: String::new(),
             scan_time: String::new(),
@@ -267,9 +257,9 @@ mod tests {
     #[test]
     fn affine_translation_offsets_to_the_corner_voxel_for_multi_voxel_grids() {
         // norm = [0,0,1] (the default in the `header()` test helper) means
-        // normal = [0,0,1] (pure S), and orthogonal_basis([0,0,1]) works out
-        // to col0 = [0,-1,0], col1 = [1,0,0] (traced through the seed/cross
-        // product construction). A 4x4x4 grid with 10mm voxels offsets the
+        // normal = [0,0,1] (pure S), and the corner triple in `header()` is
+        // chosen so col0 = [0,-1,0], col1 = [1,0,0] (see the comment there).
+        // A 4x4x4 grid with 10mm voxels offsets the
         // corner from the centre by (4-1)/2 * 10 = 15mm along each of those
         // three directions: -15 along col0 = +15mm on the A (world Y) axis
         // before negation, +15mm along col1 = -15mm on the R (world X) axis
@@ -310,5 +300,123 @@ mod tests {
         let loc = svs_localisation(&header("echocsi", 91.0, 40.0, 300.0));
         assert_eq!(loc.extents_mm[2], 40.0);
         assert!(loc.warnings.iter().any(|w| w.contains("echocsi")));
+    }
+
+    #[test]
+    fn build_affine_derives_in_plane_axes_from_corners_not_an_arbitrary_seed() {
+        // Regression guard for Finding 1: the in-plane axes must come from
+        // the trhc/tlhc/brhc corner triple, not from an arbitrary cardinal
+        // seed crossed with the slice normal. MRS_2H_slab is a genuinely
+        // tilted acquisition (h.norm ~= [0, -0.266, 0.964]), so the old
+        // orthogonal_basis(normal) construction and the corner-derived one
+        // disagree -- a fixture aligned with a cardinal axis would not
+        // distinguish them.
+        let p = match crate::samples::sample_mat("MRS_2H_slab") {
+            Some(p) => p,
+            None => {
+                eprintln!("SKIP: tests/datasets absent");
+                return;
+            }
+        };
+        let m = crate::mat::MatFile::open(&p).unwrap();
+        let h = GeHeader::from_mat(&m).unwrap();
+
+        // Sanity check: this really is a tilted acquisition, not axis-aligned.
+        assert!((h.norm[1] - (-0.266223)).abs() < 1e-3);
+        assert!((h.norm[2] - 0.963911).abs() < 1e-3);
+
+        let expected_col0 = normalise(subtract(h.trhc, h.tlhc));
+        let expected_col1 = normalise(subtract(h.brhc, h.trhc));
+        let expected_normal = normalise(h.norm);
+
+        // The old, buggy construction: an arbitrary cardinal seed crossed
+        // with the slice normal. This must NOT match the corner-derived
+        // basis on a tilted acquisition -- if it does, the fix regressed.
+        let seed = if expected_normal[0].abs() < 0.9 {
+            [1.0, 0.0, 0.0]
+        } else {
+            [0.0, 1.0, 0.0]
+        };
+        fn cross(a: [f64; 3], b: [f64; 3]) -> [f64; 3] {
+            [
+                a[1] * b[2] - a[2] * b[1],
+                a[2] * b[0] - a[0] * b[2],
+                a[0] * b[1] - a[1] * b[0],
+            ]
+        }
+        let old_col0 = normalise(cross(seed, expected_normal));
+
+        let diff = (0..3)
+            .map(|i| (old_col0[i] - expected_col0[i]).powi(2))
+            .sum::<f64>()
+            .sqrt();
+        assert!(
+            diff > 0.1,
+            "expected the corner-derived col0 to differ substantially from \
+             the old orthogonal_basis seed-derived col0 on a tilted \
+             acquisition; got old={old_col0:?} new={expected_col0:?}"
+        );
+
+        // The affine actually built by build_affine must match the
+        // corner-derived basis (via its column norms and orientation),
+        // scaled by the given extents.
+        let extents = [10.0, 20.0, 30.0];
+        let a = build_affine(&h, extents, [1, 1, 1]);
+
+        // Reconstruct the unit column directions the affine encodes (undoing
+        // the extent scaling and the R/A negation) and compare against the
+        // independently-derived expected axes.
+        let mut got_col0 = [
+            a[0][0] / extents[0],
+            a[1][0] / extents[0],
+            a[2][0] / extents[0],
+        ];
+        let mut got_col1 = [
+            a[0][1] / extents[1],
+            a[1][1] / extents[1],
+            a[2][1] / extents[1],
+        ];
+        // Undo the R/A negation applied in build_affine. The negation loops
+        // over world-coordinate rows (R, A), not per-axis columns, so it
+        // applies to every axis's R and A component -- including normal's.
+        got_col0[0] = -got_col0[0];
+        got_col0[1] = -got_col0[1];
+        got_col1[0] = -got_col1[0];
+        got_col1[1] = -got_col1[1];
+        let mut got_col2 = [a[0][2] / extents[2], a[1][2] / extents[2], a[2][2] / extents[2]];
+        got_col2[0] = -got_col2[0];
+        got_col2[1] = -got_col2[1];
+
+        for i in 0..3 {
+            assert!(
+                (got_col0[i] - expected_col0[i]).abs() < 1e-9,
+                "col0[{i}]: got {}, expected {}",
+                got_col0[i],
+                expected_col0[i]
+            );
+            assert!(
+                (got_col1[i] - expected_col1[i]).abs() < 1e-9,
+                "col1[{i}]: got {}, expected {}",
+                got_col1[i],
+                expected_col1[i]
+            );
+            assert!(
+                (got_col2[i] - expected_normal[i]).abs() < 1e-9,
+                "normal[{i}]: got {}, expected {}",
+                got_col2[i],
+                expected_normal[i]
+            );
+        }
+
+        // Sanity: the corner-derived basis is unit-length and mutually
+        // orthogonal, as any valid rotation basis must be.
+        let dot = |u: [f64; 3], v: [f64; 3]| u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
+        let len = |u: [f64; 3]| dot(u, u).sqrt();
+        assert!((len(expected_col0) - 1.0).abs() < 1e-9);
+        assert!((len(expected_col1) - 1.0).abs() < 1e-9);
+        assert!((len(expected_normal) - 1.0).abs() < 1e-9);
+        assert!(dot(expected_col0, expected_col1).abs() < 1e-4);
+        assert!(dot(expected_col0, expected_normal).abs() < 1e-4);
+        assert!(dot(expected_col1, expected_normal).abs() < 1e-4);
     }
 }
