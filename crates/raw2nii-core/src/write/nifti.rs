@@ -277,9 +277,10 @@ mod tests {
 
     #[test]
     fn data_is_written_as_interleaved_f32_pairs() {
-        let b = serialise(&svs()).unwrap();
+        let ds = svs();
+        let b = serialise(&ds).unwrap();
         let vox_offset = i64_at(&b, 168) as usize;
-        let n = 1 * 1 * 1 * 8 * 2;
+        let n: usize = ds.data.shape().iter().product();
         assert_eq!(b.len(), vox_offset + n * 8);
         let re = f32::from_le_bytes(b[vox_offset..vox_offset + 4].try_into().unwrap());
         let im = f32::from_le_bytes(b[vox_offset + 4..vox_offset + 8].try_into().unwrap());

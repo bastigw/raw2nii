@@ -112,9 +112,11 @@ pub fn build_affine(h: &GeHeader, extents_mm: [f64; 3], grid: [usize; 3]) -> [[f
     }
 
     // Negate R and A to reach NIfTI's convention.
-    for c in 0..3 {
-        a[0][c] = -a[0][c];
-        a[1][c] = -a[1][c];
+    for x in a[0].iter_mut().take(3) {
+        *x = -*x;
+    }
+    for x in a[1].iter_mut().take(3) {
+        *x = -*x;
     }
 
     let mut corner = h.ctr;

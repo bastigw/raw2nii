@@ -83,6 +83,10 @@ impl MrsDataset {
                 "SpectrometerFrequency".to_string(),
             ));
         }
+        // Negated form is intentional: it also rejects NaN (NaN > 0.0 is
+        // false, so !false = true → rejected), which a direct `<= 0.0`
+        // comparison alone would miss (NaN <= 0.0 is also false).
+        #[allow(clippy::neg_cmp_op_on_partial_ord)]
         if !(self.dwell_time_s > 0.0) {
             return Err(Raw2NiiError::MissingMetadata(
                 "dwell time must be positive".to_string(),
