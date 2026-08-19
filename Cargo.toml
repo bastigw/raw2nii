@@ -1,6 +1,11 @@
 [workspace]
 resolver = "2"
-members = ["crates/raw2nii-core", "crates/raw2nii-ge", "crates/raw2nii-cli"]
+members = [
+    "crates/raw2nii-core",
+    "crates/raw2nii-ge",
+    "crates/raw2nii-cli",
+    "crates/raw2nii-py",
+]
 
 [workspace.package]
 edition = "2021"

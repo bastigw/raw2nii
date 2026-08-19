@@ -3609,5 +3609,5 @@ git commit -m "test: NIfTI-MRS conformance and golden-file regression tests"
 ## Follow-on Plans
 
 - **Plan 2 — CLI operations:** recursive discovery, rayon parallelism, `--archive` (tar.zst of the parent directory, output excluded), `--delete` (gated on archive verification), `--dry-run`, `--format`, `--json-log`.
-- **Plan 3 — Python bindings:** `raw2nii-py` via pyo3/maturin, zero-copy `ds.data` as a numpy array, `py.allow_threads`, the exception hierarchy, `abi3-py39` wheels with vendored libhdf5.
+- [x] **Plan 3 — Python bindings:** `raw2nii-py` via pyo3/maturin, zero-copy `ds.data` as a numpy array, the exception hierarchy, `abi3-py39` wheels. Done — see `crates/raw2nii-py`.
 - **Performance (spec §11):** the criterion benchmark over the sample set, with a regression guard. Deferred deliberately — the spec commits to measure-then-assert, and there is nothing meaningful to measure until Plan 2 adds parallel discovery and configurable compression.

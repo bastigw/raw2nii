@@ -1,0 +1,21 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "raw2nii"
+version = "0.1.0"
+description = "Vendor MRS raw data to NIfTI-MRS conversion"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+]
+
+[project.optional-dependencies]
+numpy = ["numpy>=1.20"]
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+module-name = "raw2nii"
+python-source = "python"

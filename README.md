@@ -92,6 +92,39 @@ See `specification.md` for the NIfTI-MRS format itself, and
 built from (each documents its own design rationale and test-driven task
 breakdown).
 
+## Python bindings
+
+`crates/raw2nii-py` exposes the core conversion API as a Python module
+(`raw2nii`) via [pyo3](https://pyo3.rs)/[maturin](https://www.maturin.rs).
+Build a wheel or install into the active virtualenv in editable mode:
+
+```bash
+pip install maturin
+cd crates/raw2nii-py
+maturin develop --release   # or `maturin build --release` for a wheel
+```
+
+```python
+import raw2nii
+
+# One call: read, name, and write straight to disk.
+paths = raw2nii.convert("scan.mat", output_dir="out", format="nii-gz")
+
+# Or work with the dataset in memory first.
+ds = raw2nii.read("scan.mat")[0]
+ds.data          # complex64 numpy array, axes (x, y, z, t, [dim5, dim6, dim7]), zero-copy
+ds.affine         # 4x4 nested list
+ds.dwell_time_s
+ds.resonant_nucleus
+ds.extra          # dict of extra NIfTI-MRS JSON-extension keys
+ds.write("scan.nii.gz")
+```
+
+Errors raise `raw2nii.Raw2NiiError` or one of its subclasses
+(`UnsupportedFormatError`, `MissingDataError`, `MissingMetadataError`,
+`GeometryError`, `DimensionMismatchError`, `BackendError`, `IoError`),
+mirroring `raw2nii_core::Raw2NiiError`.
+
 ## Development
 
 ```bash
@@ -110,5 +143,5 @@ intentional output change.
 ## Status
 
 GE fidall `.mat` (SVS and MRSI) is the only supported input format today.
-Planned follow-on work (see `docs/superpowers/plans/`): Python bindings
-(`raw2nii-py` via pyo3/maturin) and a performance benchmark suite.
+Planned follow-on work (see `docs/superpowers/plans/`): a performance
+benchmark suite.

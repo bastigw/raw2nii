@@ -1232,5 +1232,5 @@ git commit -m "feat: --archive/--delete, gated on verified tar.zst snapshots"
 
 ## Follow-on Plans
 
-- **Plan 3 — Python bindings:** unchanged from Plan 1's follow-on list — `raw2nii-py` via pyo3/maturin.
+- [x] **Plan 3 — Python bindings:** unchanged from Plan 1's follow-on list — `raw2nii-py` via pyo3/maturin. Done — see `crates/raw2nii-py`.
 - **Performance (spec §11):** now unblocked — Task 3 gives rayon-parallel conversion something to benchmark against the sequential baseline.
