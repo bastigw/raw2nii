@@ -148,22 +148,30 @@ pub fn write_file(ds: &MrsDataset, path: &Path, gzip_level: u32) -> Result<()> {
     let bytes = serialise(ds)?;
     let tmp = path.with_extension("partial");
 
-    {
+    let write_result = (|| -> std::io::Result<()> {
         let file = std::fs::File::create(&tmp)?;
-        let mut sink: Box<dyn Write> = if path
+        if path
             .extension()
             .and_then(|s| s.to_str())
             .is_some_and(|s| s.eq_ignore_ascii_case("gz"))
         {
-            Box::new(flate2::write::GzEncoder::new(
-                file,
-                flate2::Compression::new(gzip_level),
-            ))
+            let mut encoder =
+                flate2::write::GzEncoder::new(file, flate2::Compression::new(gzip_level));
+            encoder.write_all(&bytes)?;
+            // `.finish()` writes the gzip trailer (CRC32 + ISIZE); relying on
+            // Drop would silently discard any error from that final write.
+            encoder.finish()?;
         } else {
-            Box::new(file)
-        };
-        sink.write_all(&bytes)?;
-        sink.flush()?;
+            let mut file = file;
+            file.write_all(&bytes)?;
+            file.flush()?;
+        }
+        Ok(())
+    })();
+
+    if let Err(e) = write_result {
+        let _ = std::fs::remove_file(&tmp);
+        return Err(e.into());
     }
 
     std::fs::rename(&tmp, path)?;
@@ -284,5 +292,67 @@ mod tests {
         let mut ds = svs();
         ds.meta.resonant_nucleus.clear();
         assert!(serialise(&ds).is_err());
+    }
+
+    #[test]
+    fn dim1_varies_fastest_in_the_byte_stream() {
+        // Distinct values along the t axis (shape[3]) so a wrong or missing
+        // axis reversal would produce a byte stream that fails this check,
+        // unlike a uniform fixture where any ordering looks identical.
+        let mut ds = svs();
+        ds.data =
+            ArrayD::from_shape_fn(IxDyn(&[1, 1, 1, 4, 1]), |idx| Complex::new(idx[3] as f32, 0.0));
+
+        let b = serialise(&ds).unwrap();
+        let vox_offset = i64_at(&b, 168) as usize;
+        for i in 0..4 {
+            let off = vox_offset + i * 8;
+            let re = f32::from_le_bytes(b[off..off + 4].try_into().unwrap());
+            assert_eq!(re, i as f32, "sample {i} out of order");
+        }
+    }
+
+    #[test]
+    fn gzip_output_round_trips_to_the_uncompressed_bytes() {
+        use std::io::Read as _;
+
+        let ds = svs();
+        let uncompressed = serialise(&ds).unwrap();
+
+        let mut path = std::env::temp_dir();
+        path.push(format!(
+            "raw2nii_write_test_{}_{}.nii.gz",
+            std::process::id(),
+            "gzip_round_trip"
+        ));
+        write_file(&ds, &path, 6).unwrap();
+
+        let compressed = std::fs::read(&path).unwrap();
+        let mut decoder = flate2::read::GzDecoder::new(&compressed[..]);
+        let mut decompressed = Vec::new();
+        decoder.read_to_end(&mut decompressed).unwrap();
+
+        std::fs::remove_file(&path).ok();
+
+        assert_eq!(decompressed, uncompressed);
+    }
+
+    #[test]
+    fn write_file_writes_uncompressed_bytes_for_non_gz_paths() {
+        let ds = svs();
+        let expected = serialise(&ds).unwrap();
+
+        let mut path = std::env::temp_dir();
+        path.push(format!(
+            "raw2nii_write_test_{}_{}.nii",
+            std::process::id(),
+            "plain"
+        ));
+        write_file(&ds, &path, 6).unwrap();
+
+        let actual = std::fs::read(&path).unwrap();
+        std::fs::remove_file(&path).ok();
+
+        assert_eq!(actual, expected);
     }
 }
