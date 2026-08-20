@@ -5,8 +5,8 @@ shared with the ``raw2nii`` binary (via ``raw2nii-convert``), installed as a
 console-script entry point so the package works as a ``uv tool``
 (``uv tool install raw2nii`` then ``raw2nii scan.mat``). Mirrors the native
 CLI's option set (``-j``/``--jobs``, ``--dry-run``, ``--json-log``,
-``--archive``/``--delete``, ``-v``/``--verbose``) plus ``-r``/``--recursive``
-and multi-input support, which the native CLI doesn't have.
+``--archive``/``--delete``, ``-v``/``--verbose``) plus ``-r``/``--recursive``,
+``--no-color``, and multi-input support, which the native CLI doesn't have.
 """
 
 from __future__ import annotations
@@ -14,9 +14,10 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 from pathlib import Path
 
-from . import _build_and_verify_archive, _convert_many
+from . import _build_and_verify_archive, _convert_many, _output
 
 
 def _discover(root: Path, recursive: bool) -> list[Path]:
@@ -106,35 +107,51 @@ def build_parser() -> argparse.ArgumentParser:
         default=0,
         help="increase verbosity: -v for info, -vv for debug",
     )
+    parser.add_argument(
+        "--no-color",
+        action="store_true",
+        help="disable colored output (also honors the NO_COLOR env var)",
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    color_out = _output.color_enabled(sys.stdout, args.no_color) and not args.json_log
+    color_err = _output.color_enabled(sys.stderr, args.no_color) and not args.json_log
+
+    def err(text: str, color: str) -> None:
+        print(_output.colorize(text, color, color_err), file=sys.stderr)
 
     if args.delete and not args.archive:
-        print("raw2nii: --delete requires --archive", file=sys.stderr)
+        err("raw2nii: --delete requires --archive", "red")
         return 1
     if args.archive and (len(args.inputs) != 1 or not args.inputs[0].is_dir()):
-        print("raw2nii: --archive requires a single directory input", file=sys.stderr)
+        err("raw2nii: --archive requires a single directory input", "red")
         return 1
 
     inputs: list[Path] = []
     for raw_input in args.inputs:
         if not raw_input.exists():
-            print(f"raw2nii: {raw_input}: no such file or directory", file=sys.stderr)
+            err(f"raw2nii: {raw_input}: no such file or directory", "red")
             return 1
         inputs.extend(_discover(raw_input, args.recursive))
 
     if not inputs:
-        print("raw2nii: no .mat files found", file=sys.stderr)
+        err("raw2nii: no .mat files found", "red")
         return 1
 
-    if args.verbose:
-        print(f"raw2nii: converting {len(inputs)} file(s)", file=sys.stderr)
+    if not args.json_log:
+        jobs_note = f" with {args.jobs} worker(s)" if args.jobs else ""
+        dry_run_note = " (dry run)" if args.dry_run else ""
+        err(f"raw2nii: converting {len(inputs)} file(s){jobs_note}{dry_run_note}", "cyan")
+        if args.verbose:
+            for i, p in enumerate(inputs, start=1):
+                print(_output.progress_line(i, len(inputs), str(p), color_err), file=sys.stderr)
 
+    start = time.perf_counter()
     outcomes = _convert_many(
-        [str(p) for p in inputs],
+        inputs=[str(p) for p in inputs],
         output_dir=str(args.output_dir) if args.output_dir else None,
         overwrite=args.overwrite,
         compress_level=args.compress_level,
@@ -142,6 +159,7 @@ def main(argv: list[str] | None = None) -> int:
         dry_run=args.dry_run,
         format=args.format,
     )
+    elapsed = time.perf_counter() - start
 
     failures = 0
     if args.json_log:
@@ -157,41 +175,54 @@ def main(argv: list[str] | None = None) -> int:
         failures = failed
         print(json.dumps({"written": written, "skipped": skipped, "failed": failed}))
     else:
+        written = skipped = 0
         for outcome in outcomes:
             status = outcome["status"]
             if status == "written":
-                print(f"{outcome['input']} -> {outcome['output']}")
+                written += 1
+                print(_output.colorize(f"{outcome['input']} -> {outcome['output']}", "green", color_out))
             elif status == "skipped":
-                print(f"raw2nii: {outcome['input']}: {outcome['reason']}", file=sys.stderr)
+                skipped += 1
+                err(f"raw2nii: {outcome['input']}: {outcome['reason']}", "yellow")
             else:
-                print(f"raw2nii: {outcome['input']}: {outcome['error']}", file=sys.stderr)
+                err(f"raw2nii: {outcome['input']}: {outcome['error']}", "red")
                 failures += 1
+        summary_color = "red" if failures else "green"
+        dry_run_note = " (dry run)" if args.dry_run else ""
+        err(
+            f"raw2nii: {written} written, {skipped} skipped, {failures} failed ({elapsed:.2f}s){dry_run_note}",
+            summary_color,
+        )
 
     if args.archive:
         if failures > 0:
-            print(f"raw2nii: not archiving: {failures} file(s) failed to convert", file=sys.stderr)
+            err(f"raw2nii: not archiving: {failures} file(s) failed to convert", "red")
         else:
             source_dir = args.inputs[0]
             exclude = args.output_dir or (source_dir / ".raw2nii-no-exclude")
             try:
                 verified = _build_and_verify_archive(str(source_dir), str(args.archive), str(exclude))
             except Exception as exc:  # noqa: BLE001 - surfaced verbatim like the native CLI
-                print(f"raw2nii: archiving {source_dir}: {exc}", file=sys.stderr)
+                err(f"raw2nii: archiving {source_dir}: {exc}", "red")
                 failures += 1
                 verified = False
 
             if verified:
-                print(f"archived {source_dir} -> {args.archive}")
+                archived_msg = _output.colorize(f"archived {source_dir} -> {args.archive}", "green", color_out)
+                if args.json_log:
+                    print(archived_msg, file=sys.stderr)
+                else:
+                    print(archived_msg)
                 if args.delete:
                     for outcome in outcomes:
                         if outcome["status"] == "written":
                             try:
                                 Path(outcome["input"]).unlink()
                             except OSError as exc:
-                                print(f"raw2nii: could not delete {outcome['input']}: {exc}", file=sys.stderr)
+                                err(f"raw2nii: could not delete {outcome['input']}: {exc}", "red")
                                 failures += 1
             elif not failures:
-                print("raw2nii: archive verification failed, originals were not deleted", file=sys.stderr)
+                err("raw2nii: archive verification failed, originals were not deleted", "red")
                 failures += 1
 
     return 1 if failures > 0 else 0
