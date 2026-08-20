@@ -123,6 +123,13 @@ raw2nii -o out --archive study.tar.zst --delete ./study
 raw2nii --help
 ```
 
+By default `raw2nii` prints a progress preamble, a colorized line per
+converted file (green = written, yellow = skipped, red = failed), and a
+colorized summary with elapsed time. Color is automatic when stdout is a
+terminal; pass `--no-color` or set `NO_COLOR=1` to disable it (e.g. when
+piping output to a file or another program). `-v`/`--verbose` additionally
+lists every discovered input file before conversion starts.
+
 The console script mirrors the native CLI's option set (`-j`/`--jobs`,
 `--dry-run`, `--json-log`, `--archive`/`--delete`, `-v`/`--verbose`) on top of
 the same shared conversion, discovery, and archive code in
