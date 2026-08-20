@@ -21,3 +21,6 @@ raw2nii = "raw2nii.cli:main"
 features = ["pyo3/extension-module"]
 module-name = "raw2nii"
 python-source = "python"
+
+[dependency-groups]
+dev = ["pytest>=7.0"]
