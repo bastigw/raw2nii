@@ -117,10 +117,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    use_color = _output.color_enabled(sys.stdout, args.no_color) and not args.json_log
+    color_out = _output.color_enabled(sys.stdout, args.no_color) and not args.json_log
+    color_err = _output.color_enabled(sys.stderr, args.no_color) and not args.json_log
 
     def err(text: str, color: str) -> None:
-        print(_output.colorize(text, color, use_color), file=sys.stderr)
+        print(_output.colorize(text, color, color_err), file=sys.stderr)
 
     if args.delete and not args.archive:
         err("raw2nii: --delete requires --archive", "red")
@@ -142,10 +143,11 @@ def main(argv: list[str] | None = None) -> int:
 
     if not args.json_log:
         jobs_note = f" with {args.jobs} worker(s)" if args.jobs else ""
-        err(f"raw2nii: converting {len(inputs)} file(s){jobs_note}", "cyan")
+        dry_run_note = " (dry run)" if args.dry_run else ""
+        err(f"raw2nii: converting {len(inputs)} file(s){jobs_note}{dry_run_note}", "cyan")
         if args.verbose:
             for i, p in enumerate(inputs, start=1):
-                print(_output.progress_line(i, len(inputs), str(p), use_color), file=sys.stderr)
+                print(_output.progress_line(i, len(inputs), str(p), color_err), file=sys.stderr)
 
     start = time.perf_counter()
     outcomes = _convert_many(
@@ -178,7 +180,7 @@ def main(argv: list[str] | None = None) -> int:
             status = outcome["status"]
             if status == "written":
                 written += 1
-                print(_output.colorize(f"{outcome['input']} -> {outcome['output']}", "green", use_color))
+                print(_output.colorize(f"{outcome['input']} -> {outcome['output']}", "green", color_out))
             elif status == "skipped":
                 skipped += 1
                 err(f"raw2nii: {outcome['input']}: {outcome['reason']}", "yellow")
@@ -186,8 +188,9 @@ def main(argv: list[str] | None = None) -> int:
                 err(f"raw2nii: {outcome['input']}: {outcome['error']}", "red")
                 failures += 1
         summary_color = "red" if failures else "green"
+        dry_run_note = " (dry run)" if args.dry_run else ""
         err(
-            f"raw2nii: {written} written, {skipped} skipped, {failures} failed ({elapsed:.2f}s)",
+            f"raw2nii: {written} written, {skipped} skipped, {failures} failed ({elapsed:.2f}s){dry_run_note}",
             summary_color,
         )
 
@@ -205,7 +208,11 @@ def main(argv: list[str] | None = None) -> int:
                 verified = False
 
             if verified:
-                print(_output.colorize(f"archived {source_dir} -> {args.archive}", "green", use_color))
+                archived_msg = _output.colorize(f"archived {source_dir} -> {args.archive}", "green", color_out)
+                if args.json_log:
+                    print(archived_msg, file=sys.stderr)
+                else:
+                    print(archived_msg)
                 if args.delete:
                     for outcome in outcomes:
                         if outcome["status"] == "written":

@@ -119,3 +119,88 @@ def test_progress_preamble_printed_by_default(monkeypatch, capsys, one_mat_file)
 
     out = capsys.readouterr()
     assert "converting 1 file(s)" in out.err
+
+
+def test_archive_success_prints_archived_message(monkeypatch, capsys, tmp_path):
+    source_dir = tmp_path / "study"
+    source_dir.mkdir()
+    mat_file = source_dir / "scan.mat"
+    mat_file.write_bytes(b"")
+    archive_path = tmp_path / "out.tar.zst"
+
+    monkeypatch.setattr(
+        cli,
+        "_convert_many",
+        lambda **kwargs: [
+            _outcome("written", str(mat_file), output=str(mat_file) + ".nii.gz")
+        ],
+    )
+    monkeypatch.setattr(cli, "_build_and_verify_archive", lambda *a, **kw: True)
+    monkeypatch.setattr(cli._output, "color_enabled", lambda stream, no_color: False)
+
+    rc = cli.main([str(source_dir), "--archive", str(archive_path)])
+
+    assert rc == 0
+    out = capsys.readouterr()
+    assert f"archived {source_dir} -> {archive_path}" in out.out
+
+
+def test_archive_verification_failure_reports_error(monkeypatch, capsys, tmp_path):
+    source_dir = tmp_path / "study"
+    source_dir.mkdir()
+    mat_file = source_dir / "scan.mat"
+    mat_file.write_bytes(b"")
+    archive_path = tmp_path / "out.tar.zst"
+
+    monkeypatch.setattr(
+        cli,
+        "_convert_many",
+        lambda **kwargs: [
+            _outcome("written", str(mat_file), output=str(mat_file) + ".nii.gz")
+        ],
+    )
+    monkeypatch.setattr(cli, "_build_and_verify_archive", lambda *a, **kw: False)
+    monkeypatch.setattr(cli._output, "color_enabled", lambda stream, no_color: False)
+
+    rc = cli.main([str(source_dir), "--archive", str(archive_path)])
+
+    assert rc == 1
+    out = capsys.readouterr()
+    assert "archive verification failed" in out.err
+
+
+def test_no_ansi_codes_with_real_color_enabled_and_non_tty_capsys(monkeypatch, capsys, one_mat_file):
+    # Deliberately does NOT monkeypatch cli._output.color_enabled - capsys
+    # gives non-tty stdout/stderr by default, so the real color_enabled
+    # implementation should decide color is off on its own.
+    monkeypatch.setattr(
+        cli,
+        "_convert_many",
+        lambda **kwargs: [
+            _outcome("written", str(one_mat_file), output=str(one_mat_file) + ".nii.gz")
+        ],
+    )
+
+    rc = cli.main([str(one_mat_file)])
+
+    assert rc == 0
+    out = capsys.readouterr()
+    assert "\033[" not in out.out
+    assert "\033[" not in out.err
+
+
+def test_verbose_lists_discovered_files_on_stderr(monkeypatch, capsys, one_mat_file):
+    monkeypatch.setattr(
+        cli,
+        "_convert_many",
+        lambda **kwargs: [
+            _outcome("written", str(one_mat_file), output=str(one_mat_file) + ".nii.gz")
+        ],
+    )
+    monkeypatch.setattr(cli._output, "color_enabled", lambda stream, no_color: False)
+
+    rc = cli.main([str(one_mat_file), "-v"])
+
+    assert rc == 0
+    out = capsys.readouterr()
+    assert str(one_mat_file) in out.err
